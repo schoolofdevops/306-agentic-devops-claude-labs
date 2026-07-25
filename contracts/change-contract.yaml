@@ -1,0 +1,54 @@
+# Change Contract — defines change types and their requirements
+# Used by change-reviewer agent and hooks
+
+change_types:
+  hotfix:
+    description: "Emergency fix for production incident"
+    approval_required: false
+    rollback_plan_required: true
+    testing_required: "smoke"
+    max_files_changed: 5
+    allowed_outside_window: true
+    post_deploy:
+      - "Run smoke tests"
+      - "Monitor error rate for 15 minutes"
+      - "Create postmortem within 24 hours"
+
+  standard:
+    description: "Normal feature or fix deployment"
+    approval_required: true
+    rollback_plan_required: true
+    testing_required: "full"
+    max_blast_radius: medium
+    allowed_outside_window: false
+    post_deploy:
+      - "Run full test suite"
+      - "Monitor metrics for 30 minutes"
+      - "Update runbooks if behavior changed"
+
+  major:
+    description: "Significant infrastructure or architecture change"
+    approval_required: true
+    approvers_required: 2
+    rollback_plan_required: true
+    testing_required: "full + load"
+    max_blast_radius: high
+    allowed_outside_window: false
+    pre_deploy:
+      - "Peer review completed"
+      - "Cost estimate reviewed by FinOps"
+      - "Security review completed"
+      - "Rollback tested in staging"
+    post_deploy:
+      - "Run full test suite"
+      - "Monitor metrics for 60 minutes"
+      - "Update architecture docs"
+      - "Notify stakeholders"
+
+review_checklist:
+  - "Changes match the stated intent"
+  - "Blast radius is acceptable for the change type"
+  - "Rollback plan is viable"
+  - "No secrets or credentials in the diff"
+  - "Authority matrix permissions respected"
+  - "Environment contract constraints met"

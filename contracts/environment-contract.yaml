@@ -1,0 +1,61 @@
+# Environment Contract — defines rules for each environment
+# Referenced by hooks and agent governance
+
+environments:
+  dev:
+    description: "Development environment — experimentation allowed"
+    namespace: dev
+    kube_context: dev-cluster
+    allowed_actions:
+      - deploy
+      - scale
+      - restart
+      - delete-pods
+      - apply-config
+    blast_radius_threshold: low
+    approval_required: false
+    auto_rollback: false
+
+  staging:
+    description: "Staging environment — mirrors production, used for validation"
+    namespace: staging
+    kube_context: staging-cluster
+    allowed_actions:
+      - deploy
+      - scale
+      - restart
+    blast_radius_threshold: medium
+    approval_required: false
+    auto_rollback: true
+
+  prod:
+    description: "Production environment — customer-facing, changes require approval"
+    namespace: production
+    kube_context: prod-cluster
+    allowed_actions:
+      - deploy
+      - scale
+    blast_radius_threshold: high
+    approval_required: true
+    approvers: ["change-reviewer"]
+    auto_rollback: true
+    change_window: "Tuesday-Thursday 10:00-16:00 UTC"
+    freeze_periods:
+      - "campaign-launch"
+      - "end-of-quarter"
+
+guardrails:
+  - name: namespace-check
+    description: "Verify target namespace matches environment contract before any kubectl operation"
+    trigger: pre-tool-use
+    scope: ["kubectl"]
+
+  - name: blast-radius-check
+    description: "Estimate blast radius and block if exceeds environment threshold"
+    trigger: pre-tool-use
+    scope: ["kubectl delete", "kubectl apply", "helm upgrade"]
+
+  - name: context-verification
+    description: "Warn if KUBE_CONTEXT doesn't match expected environment"
+    trigger: pre-tool-use
+    scope: ["kubectl"]

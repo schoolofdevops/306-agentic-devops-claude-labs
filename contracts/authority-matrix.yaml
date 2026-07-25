@@ -1,0 +1,75 @@
+# Authority Matrix — defines what each agent role can do
+# Used by Claude Code agent governance (modules 8, 15, 17)
+
+roles:
+  sre-investigator:
+    description: "Investigates incidents, reads logs and metrics, forms hypotheses"
+    permissions:
+      read: ["app/", "observability/", "platform/", "incidents/", "runbooks/", "scripts/"]
+      execute: ["scripts/preflight.sh", "scripts/grade.sh"]
+      write: []
+      approve: []
+    constraints:
+      - "Cannot modify application code"
+      - "Cannot execute destructive operations"
+      - "Must document evidence before proposing fixes"
+
+  iac-engineer:
+    description: "Manages Terraform infrastructure, reviews plans, applies changes"
+    permissions:
+      read: ["infra/", "contracts/"]
+      execute: ["terraform plan", "terraform validate"]
+      write: ["infra/environments/", "infra/modules/"]
+      approve: []
+    constraints:
+      - "Cannot apply changes without plan review"
+      - "Must check cost estimates before applying"
+      - "Production changes require change-reviewer approval"
+
+  platform-engineer:
+    description: "Manages Kubernetes resources, Helm releases, Argo CD applications"
+    permissions:
+      read: ["platform/", "observability/", "app/"]
+      execute: ["helm template", "helm lint", "kubectl get", "kubectl describe"]
+      write: ["platform/helm/", "platform/policies/"]
+      approve: []
+    constraints:
+      - "Cannot delete namespaces"
+      - "Must verify target namespace before operations"
+      - "Production deployments require change-reviewer approval"
+
+  security-reviewer:
+    description: "Reviews security posture, policies, IAM, network rules"
+    permissions:
+      read: ["platform/policies/", "platform/kubeconfigs/", "infra/", "contracts/"]
+      execute: []
+      write: ["platform/policies/"]
+      approve: ["network-policy-changes", "rbac-changes"]
+    constraints:
+      - "Cannot modify application code"
+      - "Must flag any 0.0.0.0/0 CIDR rules"
+      - "Must flag any cluster-admin bindings"
+
+  finops-analyst:
+    description: "Reviews infrastructure costs, plan estimates, resource sizing"
+    permissions:
+      read: ["infra/fixtures/", "infra/environments/"]
+      execute: []
+      write: []
+      approve: ["instance-size-changes", "storage-tier-changes"]
+    constraints:
+      - "Cannot modify infrastructure directly"
+      - "Must flag instance changes > 2x current size"
+      - "Must compare against budget thresholds"
+
+  change-reviewer:
+    description: "Reviews and approves changes before production deployment"
+    permissions:
+      read: ["*"]
+      execute: ["git diff", "git log"]
+      write: []
+      approve: ["production-deployments", "infrastructure-changes", "security-changes"]
+    constraints:
+      - "Cannot make changes directly"
+      - "Must verify blast radius before approving"
+      - "Must check authority-matrix compliance"

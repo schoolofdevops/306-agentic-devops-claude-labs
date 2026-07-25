@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(curl:*)",
+      "Bash(helm template:*)",
+      "Bash(helm lint:*)",
+      "Bash(terraform validate:*)",
+      "Bash(terraform fmt:*)",
+      "Bash(jq:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(kubectl delete namespace:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(docker system prune:*)"
+    ]
+  }
+}
