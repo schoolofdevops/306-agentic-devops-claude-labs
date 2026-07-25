@@ -1,0 +1,9 @@
+environment       = "staging"
+project           = "northstar"
+instance_type     = "t3.medium"
+db_instance_class = "db.r6g.large"
+db_password       = "staging-orders-2024"
+min_size          = 2
+max_size          = 4
+desired_capacity  = 2
+multi_az          = true

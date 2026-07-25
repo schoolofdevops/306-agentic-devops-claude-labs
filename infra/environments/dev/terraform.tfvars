@@ -1,0 +1,9 @@
+environment       = "dev"
+project           = "northstar"
+instance_type     = "t3.small"
+db_instance_class = "db.t3.medium"
+db_password       = "dev-orders-2024"
+min_size          = 1
+max_size          = 2
+desired_capacity  = 1
+multi_az          = false

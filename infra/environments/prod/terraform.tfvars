@@ -1,0 +1,9 @@
+environment       = "prod"
+project           = "northstar"
+instance_type     = "t3.large"
+db_instance_class = "db.r6g.large"
+db_password       = "prod-orders-2024"
+min_size          = 3
+max_size          = 6
+desired_capacity  = 3
+multi_az          = true
