@@ -1,0 +1,22 @@
+[
+  {"id": "PROD-001", "name": "Campaign T-Shirt (S)", "price": 24.99, "stock": 150},
+  {"id": "PROD-002", "name": "Campaign T-Shirt (M)", "price": 24.99, "stock": 200},
+  {"id": "PROD-003", "name": "Campaign T-Shirt (L)", "price": 24.99, "stock": 180},
+  {"id": "PROD-004", "name": "Campaign T-Shirt (XL)", "price": 26.99, "stock": 120},
+  {"id": "PROD-005", "name": "Campaign Hoodie (S)", "price": 49.99, "stock": 80},
+  {"id": "PROD-006", "name": "Campaign Hoodie (M)", "price": 49.99, "stock": 100},
+  {"id": "PROD-007", "name": "Campaign Hoodie (L)", "price": 49.99, "stock": 90},
+  {"id": "PROD-008", "name": "Campaign Hoodie (XL)", "price": 52.99, "stock": 60},
+  {"id": "PROD-009", "name": "Campaign Cap", "price": 18.99, "stock": 300},
+  {"id": "PROD-010", "name": "Campaign Tote Bag", "price": 14.99, "stock": 250},
+  {"id": "PROD-011", "name": "Campaign Sticker Pack", "price": 6.99, "stock": 500},
+  {"id": "PROD-012", "name": "Campaign Mug", "price": 12.99, "stock": 200},
+  {"id": "PROD-013", "name": "Campaign Water Bottle", "price": 19.99, "stock": 150},
+  {"id": "PROD-014", "name": "Campaign Lanyard", "price": 4.99, "stock": 400},
+  {"id": "PROD-015", "name": "Campaign Pin Set", "price": 9.99, "stock": 350},
+  {"id": "PROD-016", "name": "Campaign Poster (A2)", "price": 15.99, "stock": 100},
+  {"id": "PROD-017", "name": "Campaign Notebook", "price": 11.99, "stock": 180},
+  {"id": "PROD-018", "name": "Campaign Phone Case", "price": 22.99, "stock": 120},
+  {"id": "PROD-019", "name": "Campaign Socks", "price": 9.99, "stock": 220},
+  {"id": "PROD-020", "name": "Campaign Gift Box", "price": 59.99, "stock": 50}
+]

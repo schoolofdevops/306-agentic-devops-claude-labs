@@ -1,0 +1,16 @@
+# agentic-ops-lab/.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+node_modules/
+*.db
+*.sqlite3
+.pytest_cache/
+.coverage
+htmlcov/
