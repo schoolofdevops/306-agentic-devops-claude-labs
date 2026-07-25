@@ -1,0 +1,49 @@
+replicaCount: 1
+
+image:
+  repository: inventory-api
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/northstar-admin-role"   # DELIBERATE BUG: overly broad admin role (M15)
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8081
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+env:
+  PORT: "8081"
+  APP_VERSION: "1.0.0"
+  FAULT_ENABLED: "false"
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
