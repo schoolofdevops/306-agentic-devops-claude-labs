@@ -1,0 +1,12 @@
+# Intentionally permissive: allows all ingress traffic — hardened in the M15 lab.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-ingress
+  namespace: northstar
+spec:
+  podSelector: {}
+  ingress:
+    - {}
+  policyTypes:
+    - Ingress
