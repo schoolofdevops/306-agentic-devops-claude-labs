@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/faults"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/store"
 )
 
@@ -13,8 +14,32 @@ type reserveRequest struct {
 	Quantity int `json:"quantity"`
 }
 
-func New(s *store.Store) chi.Router {
+func New(s *store.Store, fe *faults.Engine) chi.Router {
 	r := chi.NewRouter()
+
+	r.Use(fe.Middleware())
+
+	r.Get("/admin/faults", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, 200, map[string]interface{}{
+			"config": fe.GetConfig(),
+			"stats":  fe.GetStats(),
+		})
+	})
+
+	r.Post("/admin/faults", func(w http.ResponseWriter, r2 *http.Request) {
+		var cfg faults.Config
+		if err := json.NewDecoder(r2.Body).Decode(&cfg); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "invalid request body"})
+			return
+		}
+		fe.SetConfig(cfg)
+		writeJSON(w, 200, map[string]interface{}{"status": "updated", "config": fe.GetConfig()})
+	})
+
+	r.Delete("/admin/faults", func(w http.ResponseWriter, _ *http.Request) {
+		fe.Clear()
+		writeJSON(w, 200, map[string]string{"status": "cleared"})
+	})
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, 200, map[string]string{"status": "ok"})

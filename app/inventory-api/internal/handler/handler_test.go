@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/faults"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/handler"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/store"
 )
@@ -17,7 +18,7 @@ func setup(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("failed to load store: %v", err)
 	}
-	return handler.New(s)
+	return handler.New(s, faults.NewEngine(faults.Config{}))
 }
 
 func TestListProducts(t *testing.T) {
