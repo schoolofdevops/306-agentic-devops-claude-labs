@@ -20,3 +20,11 @@ def test_info():
     assert "hostname" in data
     assert "version" in data
     assert data["service"] == "orders-api"
+
+
+def test_metrics_endpoint():
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert "orders_api_requests_total" in resp.text

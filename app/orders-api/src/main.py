@@ -29,6 +29,12 @@ def create_app() -> FastAPI:
     from src.routes import router as api_router
     app.include_router(api_router)
 
+    from src.metrics import MetricsMiddleware, metrics_endpoint
+    from starlette.routing import Route
+
+    app.add_middleware(MetricsMiddleware)
+    app.routes.append(Route("/metrics", metrics_endpoint))
+
     static_dir = Path(__file__).parent.parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
