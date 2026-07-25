@@ -118,19 +118,23 @@ async def dashboard_data(db: AsyncSession = Depends(get_db)):
     from src.models import Order
     from src.metrics import REQUESTS_TOTAL, UPSTREAM_RETRIES, UPSTREAM_ERRORS, ORDERS_CREATED
 
-    result = await db.execute(
-        select(Order).order_by(desc(Order.created_at)).limit(10)
-    )
-    recent_orders = [
-        {
-            "id": o.id,
-            "product_id": o.product_id,
-            "quantity": o.quantity,
-            "status": o.status,
-            "created_at": o.created_at.isoformat() if o.created_at else None,
-        }
-        for o in result.scalars().all()
-    ]
+    try:
+        result = await db.execute(
+            select(Order).order_by(desc(Order.created_at)).limit(10)
+        )
+        recent_orders = [
+            {
+                "id": o.id,
+                "product_id": o.product_id,
+                "quantity": o.quantity,
+                "status": o.status,
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+            }
+            for o in result.scalars().all()
+        ]
+    except Exception as e:
+        logger.error(f"database unavailable: {e}")
+        recent_orders = []
 
     return {
         "orders": recent_orders,

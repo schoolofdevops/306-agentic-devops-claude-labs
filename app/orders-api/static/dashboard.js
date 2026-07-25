@@ -75,8 +75,7 @@ async function updateInventoryInfo() {
     }
 }
 
-async function updateMetrics() {
-    const dashboard = await fetchJSON('/api/v1/dashboard');
+async function updateMetrics(dashboard) {
     if (dashboard) {
         const retries = dashboard.retry_stats?.recent_retries || 0;
         pushSparkline(sparklineData.retries, retries);
@@ -97,8 +96,7 @@ async function updateMetrics() {
     drawSparkline('chart-latency', sparklineData.latency, '#3b82f6');
 }
 
-async function updateOrders() {
-    const dashboard = await fetchJSON('/api/v1/dashboard');
+async function updateOrders(dashboard) {
     const tbody = document.getElementById('orders-tbody');
     if (!dashboard || !dashboard.orders) {
         tbody.innerHTML = '<tr><td colspan="5">No data</td></tr>';
@@ -120,7 +118,8 @@ async function updateOrders() {
 }
 
 async function refresh() {
-    await Promise.all([updateOrdersInfo(), updateInventoryInfo(), updateMetrics(), updateOrders()]);
+    const dashboard = await fetchJSON('/api/v1/dashboard');
+    await Promise.all([updateOrdersInfo(), updateInventoryInfo(), updateMetrics(dashboard), updateOrders(dashboard)]);
     document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
 }
 

@@ -42,7 +42,9 @@ cat "$FIXTURES_DIR/sample-orders.json" | python3 -c "
 import json, sys
 orders = json.load(sys.stdin)
 for o in orders:
-    print(f\"INSERT INTO orders (product_id, quantity, status) VALUES ('{o[\"product_id\"]}', {o[\"quantity\"]}, '{o[\"status\"]}') ON CONFLICT DO NOTHING;\")
+    product_id = o['product_id'].replace(\"'\", \"''\")
+    status = o['status'].replace(\"'\", \"''\")
+    print(f\"INSERT INTO orders (product_id, quantity, status) VALUES ('{product_id}', {o['quantity']}, '{status}') ON CONFLICT DO NOTHING;\")
 " | psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -q
 
 echo "==> Seed complete. $(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc 'SELECT count(*) FROM orders') orders in database."
