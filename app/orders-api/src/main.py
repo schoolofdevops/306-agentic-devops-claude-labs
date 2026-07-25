@@ -26,6 +26,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title="orders-api", version=settings.app_version, lifespan=lifespan)
     app.include_router(health_router)
 
+    from src.routes import router as api_router
+    app.include_router(api_router)
+
     static_dir = Path(__file__).parent.parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
