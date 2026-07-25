@@ -1,0 +1,51 @@
+replicaCount: 1
+
+image:
+  repository: orders-api
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+readinessProbe:
+  httpGet:
+    path: /health          # DELIBERATE BUG: should be /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+
+# DELIBERATE OMISSION: no resources block here — learners discover this in M12
+
+env:
+  INVENTORY_API_URL: "http://inventory-api:8081"
+  DATABASE_URL: "postgresql+asyncpg://orders:orders@postgres:5432/orders"
+  APP_VERSION: "1.0.0"
+  RETRY_COUNT: "3"
+  RETRY_DELAY_MS: "1000"
+  TIMEOUT_MS: "5000"
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: "100%"    # DELIBERATE BUG: causes full outage during deploy (M12)
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80

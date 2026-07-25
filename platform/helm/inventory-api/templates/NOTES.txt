@@ -1,0 +1,7 @@
+Northstar Commerce Inventory API deployed.
+
+Access the service:
+  kubectl port-forward svc/{{ include "inventory-api.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Products API: http://localhost:{{ .Values.service.port }}/api/v1/products
+Fault injection: http://localhost:{{ .Values.service.port }}/admin/faults

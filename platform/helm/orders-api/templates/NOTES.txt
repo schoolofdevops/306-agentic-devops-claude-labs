@@ -1,0 +1,7 @@
+Northstar Commerce Orders API deployed.
+
+Access the service:
+  kubectl port-forward svc/{{ include "orders-api.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Dashboard: http://localhost:{{ .Values.service.port }}/
+API: http://localhost:{{ .Values.service.port }}/api/v1/orders

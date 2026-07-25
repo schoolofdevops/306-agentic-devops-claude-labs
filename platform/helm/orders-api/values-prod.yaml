@@ -1,0 +1,14 @@
+replicaCount: 3
+env:
+  LOG_LEVEL: "INFO"
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 15
+livenessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 20
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
