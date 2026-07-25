@@ -9,10 +9,13 @@ import (
 
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/faults"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/handler"
+	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/metrics"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/store"
 )
 
 func main() {
+	metrics.Register()
+
 	port := envOr("PORT", "8081")
 	dataPath := envOr("DATA_PATH", "testdata/products.json")
 

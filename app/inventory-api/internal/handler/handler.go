@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/faults"
+	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/metrics"
 	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/store"
 )
 
@@ -17,7 +18,10 @@ type reserveRequest struct {
 func New(s *store.Store, fe *faults.Engine) chi.Router {
 	r := chi.NewRouter()
 
+	r.Use(metrics.Middleware())
 	r.Use(fe.Middleware())
+
+	r.Handle("/metrics", metrics.Handler())
 
 	r.Get("/admin/faults", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, 200, map[string]interface{}{
@@ -95,14 +99,18 @@ func New(s *store.Store, fe *faults.Engine) chi.Router {
 		if err := s.Reserve(id, req.Quantity); err != nil {
 			switch err {
 			case store.ErrNotFound:
+				metrics.StockReservations.WithLabelValues("not_found").Inc()
 				writeJSON(w, 404, map[string]string{"error": "product not found"})
 			case store.ErrInsufficientStock:
+				metrics.StockReservations.WithLabelValues("insufficient").Inc()
 				writeJSON(w, 409, map[string]string{"error": "insufficient stock"})
 			default:
+				metrics.StockReservations.WithLabelValues("error").Inc()
 				writeJSON(w, 500, map[string]string{"error": "internal error"})
 			}
 			return
 		}
+		metrics.StockReservations.WithLabelValues("success").Inc()
 		p, _ := s.Get(id)
 		writeJSON(w, 200, map[string]interface{}{
 			"status":          "reserved",

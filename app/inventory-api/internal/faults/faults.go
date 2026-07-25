@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/schoolofdevops/agentic-ops-lab/app/inventory-api/internal/metrics"
 )
 
 type Config struct {
@@ -89,12 +91,14 @@ func (e *Engine) Middleware() func(http.Handler) http.Handler {
 				e.mu.Lock()
 				e.stats.LatencyInjected++
 				e.mu.Unlock()
+				metrics.FaultsInjected.WithLabelValues("latency").Inc()
 			}
 
 			if cfg.ErrorRate > 0 && rand.Float64() < cfg.ErrorRate {
 				e.mu.Lock()
 				e.stats.ErrorsInjected++
 				e.mu.Unlock()
+				metrics.FaultsInjected.WithLabelValues("error").Inc()
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(500)
 				json.NewEncoder(w).Encode(map[string]string{
