@@ -1,0 +1,59 @@
+groups:
+  - name: service_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(orders_api_requests_total{status=~"5.."}[2m]))
+          /
+          sum(rate(orders_api_requests_total[2m]))
+          > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: orders-api
+        annotations:
+          summary: "High error rate on orders-api"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%) for 2 minutes"
+          runbook: "runbooks/service-restart.md"
+
+      - alert: LatencyBreach
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(orders_api_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: critical
+          service: orders-api
+        annotations:
+          summary: "p95 latency breach on orders-api"
+          description: "p95 latency is {{ $value | humanizeDuration }} (threshold: 1s) for 5 minutes"
+
+      - alert: UpstreamTimeoutSpike
+        expr: rate(orders_api_upstream_errors_total{type="timeout"}[2m]) * 60 > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: orders-api
+        annotations:
+          summary: "Upstream timeout spike"
+          description: "More than 10 upstream timeouts per minute for 2 minutes"
+
+      - alert: InventoryFaultInjectionActive
+        expr: inventory_api_faults_injected_total > 0
+        for: 1m
+        labels:
+          severity: info
+          service: inventory-api
+        annotations:
+          summary: "Fault injection is active on inventory-api"
+          description: "Faults are being injected — this may be intentional for testing"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Prometheus cannot scrape {{ $labels.job }} for over 1 minute"

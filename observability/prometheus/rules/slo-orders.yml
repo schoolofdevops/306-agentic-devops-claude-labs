@@ -1,0 +1,41 @@
+groups:
+  - name: slo_orders
+    interval: 30s
+    rules:
+      - record: orders_api:error_rate:5m
+        expr: |
+          sum(rate(orders_api_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(orders_api_requests_total[5m]))
+
+      - record: orders_api:latency_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(orders_api_request_duration_seconds_bucket[5m])) by (le)
+          )
+
+      - record: orders_api:upstream_error_rate:5m
+        expr: |
+          sum(rate(orders_api_upstream_errors_total[5m]))
+          /
+          sum(rate(orders_api_requests_total[5m]))
+
+      - alert: SLOErrorBudgetBurn
+        expr: orders_api:error_rate:5m > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          slo: error_rate
+        annotations:
+          summary: "Error rate SLO breach"
+          description: "orders-api error rate {{ $value | humanizePercentage }} exceeds 1% SLO over 5 minutes"
+
+      - alert: SLOLatencyBreach
+        expr: orders_api:latency_p95:5m > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "Latency SLO breach"
+          description: "orders-api p95 latency {{ $value | humanizeDuration }} exceeds 500ms SLO"

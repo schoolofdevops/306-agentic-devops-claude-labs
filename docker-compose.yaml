@@ -56,5 +56,38 @@ services:
       inventory-api:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["observe", "full"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=1d"
+      - "--web.enable-lifecycle"
+    depends_on:
+      orders-api:
+        condition: service_started
+        required: false
+      inventory-api:
+        condition: service_started
+        required: false
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    profiles: ["observe", "full"]
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+
 volumes:
   pgdata:
+  prometheus-data:
