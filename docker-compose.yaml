@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["core", "full"]
+    environment:
+      POSTGRES_USER: orders
+      POSTGRES_PASSWORD: orders
+      POSTGRES_DB: orders
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - pgdata:/var/lib/postgresql/data
+    command: >
+      postgres
+        -c shared_preload_libraries=pg_stat_statements
+        -c pg_stat_statements.track=all
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  inventory-api:
+    build:
+      context: ./app/inventory-api
+    profiles: ["core", "full"]
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      APP_VERSION: "1.0.0"
+      FAULT_ENABLED: "false"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  orders-api:
+    build:
+      context: ./app/orders-api
+    profiles: ["core", "full"]
+    ports:
+      - "8080:8080"
+    environment:
+      INVENTORY_API_URL: "http://inventory-api:8081"
+      DATABASE_URL: "postgresql+asyncpg://orders:orders@postgres:5432/orders"
+      APP_VERSION: "1.0.0"
+      RETRY_COUNT: "3"
+      RETRY_DELAY_MS: "1000"
+      TIMEOUT_MS: "5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      inventory-api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
