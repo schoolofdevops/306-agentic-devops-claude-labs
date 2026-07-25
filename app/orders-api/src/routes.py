@@ -111,3 +111,28 @@ async def list_products():
         return await inventory_client.list_products()
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"inventory service unavailable: {e}")
+
+
+@router.get("/dashboard")
+async def dashboard_data(db: AsyncSession = Depends(get_db)):
+    from src.models import Order
+    from src.metrics import REQUESTS_TOTAL, UPSTREAM_RETRIES, UPSTREAM_ERRORS, ORDERS_CREATED
+
+    result = await db.execute(
+        select(Order).order_by(desc(Order.created_at)).limit(10)
+    )
+    recent_orders = [
+        {
+            "id": o.id,
+            "product_id": o.product_id,
+            "quantity": o.quantity,
+            "status": o.status,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+        }
+        for o in result.scalars().all()
+    ]
+
+    return {
+        "orders": recent_orders,
+        "retry_stats": inventory_client.retry_stats,
+    }

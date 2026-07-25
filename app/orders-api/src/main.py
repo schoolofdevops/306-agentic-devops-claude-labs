@@ -39,6 +39,12 @@ def create_app() -> FastAPI:
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    from starlette.responses import FileResponse
+
+    @app.get("/")
+    async def dashboard():
+        return FileResponse(str(static_dir / "index.html"))
+
     return app
 
 

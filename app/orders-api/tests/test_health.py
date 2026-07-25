@@ -28,3 +28,11 @@ def test_metrics_endpoint():
     resp = client.get("/metrics")
     assert resp.status_code == 200
     assert "orders_api_requests_total" in resp.text
+
+
+def test_dashboard_serves():
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "Northstar Commerce" in resp.text
