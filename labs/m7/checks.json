@@ -1,0 +1,38 @@
+[
+  {
+    "id": "m7-observer-server-present",
+    "description": "the read-only MCP observer server and its tool manifest exist",
+    "command": "[ -f platform/mcp-servers/northstar-observer.js ] && [ -f platform/mcp-servers/northstar-observer.tools.json ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-observer-manifest-read-only",
+    "description": "the tool manifest declares read_only:true and every exposed tool has kind:read (no write tool)",
+    "command": "jq -e '.read_only == true and ([.tools[].kind] | all(. == \"read\"))' platform/mcp-servers/northstar-observer.tools.json >/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-observer-lists-three-read-tools",
+    "description": "over stdio the server lists exactly get_health, get_info, get_readiness — the complete read-only surface, no write tool",
+    "command": "out=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==2) | .result.tools[].name' | sort | tr '\\n' ' '); [ \"$out\" = 'get_health get_info get_readiness ' ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-observer-write-attempt-fails",
+    "description": "NEGATIVE: a write-shaped tools/call (restart) is rejected because no such tool exists in the interface — the observer boundary is structural, not a permission check",
+    "command": "resp=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"restart\",\"arguments\":{\"service\":\"orders-api\"}}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==9) | (.error.message // \"OK\")'); echo \"$resp\" | grep -qi 'unknown tool' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-observer-read-tool-returns-typed-json",
+    "description": "POSITIVE: get_readiness returns typed JSON with the endpoint and http_status fields (typed contract, not raw text the agent must parse)",
+    "command": "resp=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"get_readiness\",\"arguments\":{\"service\":\"orders-api\"}}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==3) | .result.content[0].text'); echo \"$resp\" | jq -e '.endpoint == \"/readyz\" and has(\"http_status\")' >/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-shootout-ledger-all-three",
+    "description": "the Agent Run Ledger captured all three shootout approaches (cli, skill, mcp)",
+    "command": "jq -e -s '([.[].approach] | unique | sort) == [\"cli\",\"mcp\",\"skill\"]' labs/m7/shootout.jsonl >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

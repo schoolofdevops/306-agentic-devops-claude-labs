@@ -1,0 +1,13 @@
+{
+  "name": "northstar-ops-starter",
+  "version": "1.0.0",
+  "description": "Northstar Commerce agentic-ops starter — the governed operating layer packaged as a versioned plugin: seven role agents, incident-response skills, the change gate, the authority/environment/change contracts, and the observer MCP config.",
+  "author": {
+    "name": "Northstar Platform Team"
+  },
+  "keywords": ["devops", "sre", "incident-response", "governance", "gitops"],
+  "agents": "./agents",
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./mcp/observer.json"
+}

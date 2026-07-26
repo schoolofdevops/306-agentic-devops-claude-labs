@@ -1,0 +1,92 @@
+[
+  {
+    "id": "m14-slo-error-rule-present",
+    "description": "SLO: the error-rate recording rule orders_api:error_rate:5m exists — the SLI is precomputed from the golden-signal metric, not hand-queried per incident",
+    "command": "grep -Eq 'record:[[:space:]]*orders_api:error_rate:5m' observability/prometheus/rules/slo-orders.yml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-slo-latency-rule-present",
+    "description": "SLO: the latency recording rule orders_api:latency_p95:5m exists — p95 is a golden signal computed from the request-duration histogram",
+    "command": "grep -Eq 'record:[[:space:]]*orders_api:latency_p95:5m' observability/prometheus/rules/slo-orders.yml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-slo-error-budget-alert",
+    "description": "ERROR BUDGET: the SLOErrorBudgetBurn alert fires when error rate exceeds the 1% budget — the alert is a burn threshold, not a raw count",
+    "command": "grep -A1 'alert:[[:space:]]*SLOErrorBudgetBurn' observability/prometheus/rules/slo-orders.yml | grep -Eq 'orders_api:error_rate:5m[[:space:]]*>[[:space:]]*0\\.01' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-slo-latency-threshold",
+    "description": "SLO: the latency SLO threshold is 500ms (0.5s) — the objective is a named number the alert gates on, not a vibe",
+    "command": "grep -A1 'alert:[[:space:]]*SLOLatencyBreach' observability/prometheus/rules/slo-orders.yml | grep -Eq 'orders_api:latency_p95:5m[[:space:]]*>[[:space:]]*0\\.5' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-golden-signals-metrics-exist",
+    "description": "GOLDEN SIGNALS: orders-api exports the four evidence metrics — request count (traffic+errors), duration histogram (latency), upstream errors — as real Prometheus series",
+    "command": "grep -q 'orders_api_requests_total' app/orders-api/src/metrics.py && grep -q 'orders_api_request_duration_seconds' app/orders-api/src/metrics.py && grep -q 'orders_api_upstream_errors_total' app/orders-api/src/metrics.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-retry-metric-exists",
+    "description": "EVIDENCE: the upstream retry counter orders_api_upstream_retries_total exists — the retry storm is measurable, not inferred from logs alone",
+    "command": "grep -q 'orders_api_upstream_retries_total' app/orders-api/src/metrics.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-bounded-query-window",
+    "description": "ANTI-FIREHOSE: the SLI queries are bounded by a 5m rate window and aggregated (sum/by le) — a bounded question, not sum(everything)",
+    "command": "grep -Eq 'rate\\(orders_api_requests_total.*\\[5m\\]\\)' observability/prometheus/rules/slo-orders.yml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-retry-amplification-config",
+    "description": "RETRY STORM: the retry-storm fixture raises RETRY_COUNT to 10 and TIMEOUT_MS to 30000 — the causal change is the retry config, provable from the fixture, not a guess",
+    "command": "grep -Eq 'RETRY_COUNT=10' fixtures/fault-configs/retry-storm.env && grep -Eq 'TIMEOUT_MS=30000' fixtures/fault-configs/retry-storm.env && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-retry-client-backoff",
+    "description": "MECHANISM: the inventory client retries retry_count+1 times with exponential backoff — 10 retries + a 30s timeout is an 11x upstream amplifier, readable in source",
+    "command": "grep -Eq 'range\\(self\\.settings\\.retry_count \\+ 1\\)' app/orders-api/src/inventory_client.py && grep -q '2 \\*\\* attempt' app/orders-api/src/inventory_client.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-evidence-packet-valid",
+    "description": "EVIDENCE PACKET: a well-formed sre-investigator packet (hypothesis + sources + out_of_scope) validates — a claim with provenance is evidence, not decoration",
+    "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"ops-lead\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"degraded\",\"checks\":{\"healthz\":true},\"hypothesis\":\"retry config amplifies upstream latency into a storm\",\"confidence\":\"high\",\"sources\":[\"fixtures/fault-configs/retry-storm.env\",\"app/orders-api/src/inventory_client.py:20\"]},\"recommendations\":[\"lower RETRY_COUNT\"],\"out_of_scope\":[\"did not check DB saturation\"]}' | bash scripts/evidence-validate.sh >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-evidence-packet-unsourced-rejected",
+    "description": "PROVENANCE: an evidence packet with a confident hypothesis and NO sources is rejected (exit 4) — an assertion dressed as evidence is contamination",
+    "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"ops-lead\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"down\",\"checks\":{},\"hypothesis\":\"the database is out of memory\",\"confidence\":\"high\",\"sources\":[]},\"recommendations\":[],\"out_of_scope\":[]}' | bash scripts/evidence-validate.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-hypotheses-corroborated",
+    "description": "HYPOTHESIS SYNTHESIS: three independent dimensions that converge on the retry-config root cause from their OWN evidence yield verdict=corroborated — real agreement, not an echo",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"inventory_client.py:20\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"medium\",\"sources\":[\"kubectl top pods\"],\"derived_from\":null},{\"dimension\":\"recent-change\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"retry-storm.env\"],\"derived_from\":null}]' | bash scripts/synthesize-hypotheses.sh 2>/dev/null | grep -Eq 'verdict=corroborated' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-consensus-theater-rejected",
+    "description": "FALSIFY, DON'T ECHO: a packet derived_from a peer's hypothesis (not its own evidence) is rejected as consensus theater (exit 4) — three echoes are one guess, not three confirmations",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"inventory_client.py:20\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"peer said so\"],\"derived_from\":\"application-retry\"}]' | bash scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-sre-role-readonly",
+    "description": "AUTHORITY: the sre-investigator role has no Edit/Write tool — the investigator produces evidence and recommends a fix, it never applies one",
+    "command": "grep -Eq 'disallowedTools:.*\"Edit\".*\"Write\"' .claude/agents/sre-investigator.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14-alertmanager-file-receiver",
+    "description": "ALERTING: alertmanager routes to a file/webhook receiver (no human paged in the lab) — alerts are captured as evidence, the routing is real",
+    "command": "grep -Eq 'receiver:[[:space:]]*file-logger' observability/alertmanager/alertmanager.yml && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

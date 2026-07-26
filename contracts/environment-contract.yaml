@@ -59,3 +59,52 @@ guardrails:
     description: "Warn if KUBE_CONTEXT doesn't match expected environment"
     trigger: pre-tool-use
     scope: ["kubectl"]
+
+# ---------------------------------------------------------------------------
+# Environment bundles (M8) — the canonical, machine-checkable target metadata.
+#
+# The `environments:` block above describes policy in prose for humans and
+# agents. The `bundles:` block below is the ENFORCEMENT half: each bundle names
+# the exact target an operation is allowed to touch — which kubeconfig identity,
+# which terraform backend, and three hard booleans (allow_apply, allow_delete,
+# require_approval). scripts/env-check.sh reads this block to answer one
+# question fail-closed: "does the environment the operator DECLARED match the
+# cluster context and identity actually in effect?" A mismatch is blocked, not
+# warned — you cannot half-know which environment you are in.
+#
+# The invariant that makes this safe: dev is the only bundle whose kubeconfig is
+# an admin (writer) identity. staging and production are pinned to the read-only
+# identity, so even a bug that bypassed the change gate cannot write to them from
+# an agent session — the credential itself has no write verb. Writes to staging
+# and production happen exactly one way: through the GitOps reconciler.
+# ---------------------------------------------------------------------------
+bundles:
+  dev:
+    description: "Local development — experimentation allowed, agent may apply directly."
+    kube_context: dev-cluster
+    kubeconfig: platform/kubeconfigs/admin.yaml
+    identity: admin
+    terraform_backend: local
+    allow_apply: true
+    allow_delete: true
+    require_approval: false
+
+  staging:
+    description: "Pre-production mirror — read-only to the agent; writes flow through GitOps."
+    kube_context: staging-cluster
+    kubeconfig: platform/kubeconfigs/readonly.yaml
+    identity: readonly
+    terraform_backend: s3
+    allow_apply: false
+    allow_delete: false
+    require_approval: false
+
+  production:
+    description: "Customer-facing — read-only to the agent; every change is GitOps + approval."
+    kube_context: prod-cluster
+    kubeconfig: platform/kubeconfigs/readonly.yaml
+    identity: readonly
+    terraform_backend: s3
+    allow_apply: false
+    allow_delete: false
+    require_approval: true

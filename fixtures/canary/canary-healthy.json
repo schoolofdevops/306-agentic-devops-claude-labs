@@ -1,0 +1,8 @@
+{
+  "release": "orders-api-1.4.0",
+  "window_seconds": 300,
+  "error_rate": 0.004,
+  "p95_latency_ms": 210,
+  "ready_replicas": 2,
+  "desired_replicas": 2
+}

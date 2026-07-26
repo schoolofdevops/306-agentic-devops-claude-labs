@@ -1,0 +1,80 @@
+[
+  {
+    "id": "m6-service-health-skill-present",
+    "description": ".claude/skills/service-health/SKILL.md exists with name + description frontmatter",
+    "command": "f=.claude/skills/service-health/SKILL.md; [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -q '^description:' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-service-health-two-zone",
+    "description": "service-health separates a deterministic collection zone from a reasoning zone and probes /healthz and /readyz",
+    "command": "f=.claude/skills/service-health/SKILL.md; grep -qi 'deterministic\\|collect' \"$f\" && grep -qi 'reason\\|analy' \"$f\" && grep -q '/healthz' \"$f\" && grep -q '/readyz' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-service-health-schema-and-stop",
+    "description": "service-health declares an output schema and stop conditions",
+    "command": "f=.claude/skills/service-health/SKILL.md; grep -qi 'output schema\\|## output' \"$f\" && grep -qi 'stop condition' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-tf-review-skill-present",
+    "description": ".claude/skills/terraform-plan-review/SKILL.md exists with name + description frontmatter",
+    "command": "f=.claude/skills/terraform-plan-review/SKILL.md; [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -q '^description:' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-tf-review-detect-script-present",
+    "description": "terraform-plan-review ships a deterministic detection script (progressive disclosure — logic lives in a script, not inline prose)",
+    "command": "[ -f .claude/skills/terraform-plan-review/scripts/detect-replace.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-tf-review-negative-catches-replace",
+    "description": "NEGATIVE test: the detection script flags the stateful-replace fixture (DB destroy+recreate) as a replacement",
+    "command": "out=$(bash .claude/skills/terraform-plan-review/scripts/detect-replace.sh infra/fixtures/plan-stateful-replace.json 2>/dev/null); echo \"$out\" | grep -Eq 'replacements=[1-9]' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-tf-review-positive-clears-good",
+    "description": "POSITIVE test: the detection script reports zero replacements on the clean plan-good fixture (no false alarm)",
+    "command": "out=$(bash .claude/skills/terraform-plan-review/scripts/detect-replace.sh infra/fixtures/plan-good.json 2>/dev/null); echo \"$out\" | grep -q 'replacements=0' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-k8s-diagnose-skill-present",
+    "description": ".claude/skills/k8s-diagnose/SKILL.md exists, collects pod status/events/logs, and stops before mutating",
+    "command": "f=.claude/skills/k8s-diagnose/SKILL.md; [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -qi 'kubectl get' \"$f\" && grep -qi 'describe\\|events' \"$f\" && grep -qi 'stop condition' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-k8s-diagnose-read-only",
+    "description": "k8s-diagnose is read-only: it must not contain kubectl apply/delete/scale/rollout in its collection zone",
+    "command": "f=.claude/skills/k8s-diagnose/SKILL.md; grep -Eqi 'kubectl (apply|delete|scale|rollout|edit)' \"$f\" && echo fail || echo pass",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-release-check-skill-present",
+    "description": ".claude/skills/release-check/SKILL.md exists and gates a release on health + tests + clean tree",
+    "command": "f=.claude/skills/release-check/SKILL.md; [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -qi 'healthz\\|health' \"$f\" && grep -qi 'test' \"$f\" && grep -qi 'git status\\|uncommitted\\|clean' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-incident-triage-skill-present",
+    "description": ".claude/skills/incident-triage/SKILL.md exists, reads an incident ticket, and produces an evidence packet",
+    "command": "f=.claude/skills/incident-triage/SKILL.md; [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -qi 'incident' \"$f\" && grep -qi 'evidence packet\\|evidence-packet' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-incident-triage-bounded",
+    "description": "incident-triage declares stop conditions bounding evidence collection (no unbounded/fix actions)",
+    "command": "f=.claude/skills/incident-triage/SKILL.md; grep -qi 'stop condition' \"$f\" && grep -qi 'do not\\|report only\\|no fix\\|bounded' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-human-only-side-effecting-skill",
+    "description": "a side-effecting skill (service-restart) exists and is marked human-only / not auto-invoked (invisible to automatic invocation)",
+    "command": "f=.claude/skills/service-restart/SKILL.md; [ -f \"$f\" ] && grep -Eqi 'human[- ]only|auto[-_ ]?invoke: *false|do not auto|manual( |-)invoc' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

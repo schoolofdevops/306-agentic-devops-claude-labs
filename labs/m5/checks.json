@@ -1,0 +1,32 @@
+[
+  {
+    "id": "m5-task-contract-present",
+    "description": "agentops/m5-task-contract.yaml exists with intent, target, acceptance and rollback fields",
+    "command": "[ -f agentops/m5-task-contract.yaml ] && yq -e '.task.intent and .task.target and .task.acceptance and .task.rollback' agentops/m5-task-contract.yaml >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m5-version-route-declared",
+    "description": "orders-api source declares a /version route",
+    "command": "grep -Rq '\"/version\"' app/orders-api/src 2>/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m5-version-test-present",
+    "description": "a test in orders-api covers the /version endpoint",
+    "command": "grep -Rq '/version' app/orders-api/tests 2>/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m5-suite-passes",
+    "description": "the orders-api test suite passes (existing + new, no regression)",
+    "command": "PY=python3; [ -x \"$PWD/app/orders-api/.venv/bin/python\" ] && PY=\"$PWD/app/orders-api/.venv/bin/python\"; ( cd app/orders-api && \"$PY\" -m pytest -q >/dev/null 2>&1 ) && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m5-version-returns-200",
+    "description": "GET /version returns 200 with a version field (behavior, not just source)",
+    "command": "PY=python3; [ -x \"$PWD/app/orders-api/.venv/bin/python\" ] && PY=\"$PWD/app/orders-api/.venv/bin/python\"; ( cd app/orders-api && \"$PY\" -c 'from fastapi.testclient import TestClient; from src.main import create_app; r=TestClient(create_app()).get(\"/version\"); assert r.status_code==200; assert \"version\" in r.json()' >/dev/null 2>&1 ) && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

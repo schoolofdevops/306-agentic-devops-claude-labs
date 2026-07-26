@@ -1,0 +1,62 @@
+[
+  {
+    "id": "m16dd-mlops-engineer-present",
+    "description": "the mlops-engineer role exists as an agent definition — the LLMOps counterpart to the finops-analyst, scoped to the gateway",
+    "command": "[ -f .claude/agents/mlops-engineer.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-mlops-engineer-readonly",
+    "description": "SEPARATION OF DUTIES: the mlops-engineer has no Edit/Write tool — the role that DIAGNOSES a route flip cannot APPLY the revert; a change-reviewer approves",
+    "command": "scripts/role-authority-check.sh mlops-engineer write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-mlops-engineer-right-sized",
+    "description": "MODEL RIGHT-SIZING: the mlops-engineer runs at sonnet, not opus — a bounded config+trace read does not need the strongest reasoner (M4/M9 lesson in LLMOps)",
+    "command": "grep -Eq '^model:[[:space:]]*sonnet' .claude/agents/mlops-engineer.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-cost-receipt-present",
+    "description": "the two-layer cost receipt exists and is executable — it prices the workload AND the review, the M11 agent-cost-receipt pattern applied to LLMOps",
+    "command": "[ -x scripts/gateway-cost-receipt.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-receipt-workload-cost",
+    "description": "WORKLOAD COST: on the regressed deep route the receipt prices the support workload at the high per-day figure the incident is about (> $1000/day)",
+    "command": "[ \"$(scripts/gateway-cost-receipt.sh --field workload_day | cut -d. -f1)\" -gt 1000 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-receipt-review-cheaper-than-opus",
+    "description": "REVIEW COST: pricing the review at the role's model (sonnet) is cheaper than all-opus — the receipt PROVES right-sizing the reviewer saves money",
+    "command": "S=$(scripts/gateway-cost-receipt.sh --field review_sonnet); O=$(scripts/gateway-cost-receipt.sh --field review_opus); awk -v s=\"$S\" -v o=\"$O\" 'BEGIN{exit !(s<o)}' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-rate-limit-headroom-negative",
+    "description": "RATE-LIMIT FAILURE MODE: the deep route's configured 300k tpm exceeds the provider's 120k deep ceiling — negative headroom is a throttling incident the flip introduced silently",
+    "command": "H=$(scripts/llm-dials.sh dials support --field tpm_headroom | cut -d. -f1); [ \"$H\" -lt 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-mlops-vs-llmops-signals",
+    "description": "MLOPS vs LLMOPS: the routing artifact carries LLMOps signals (route->model, rate_limit tpm) — routing/cost/quality of hosted models, NOT training/serving of an in-house model",
+    "command": "yq -e '.routes.support.rate_limit.tpm' platform/gateway/routing.yaml >/dev/null 2>&1 && yq -e '.routes.support.model' platform/gateway/routing.yaml >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-quality-dial-wired-to-gate",
+    "description": "QUALITY DIAL: after the gate runs, llm-dials reports the recorded gate verdict as the quality dial — the four dials read together, quality is measured not invented",
+    "command": "scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set good --field verdict >/dev/null 2>&1; V=$(scripts/llm-dials.sh dials support | jq -r '.quality.last_gate_verdict'); [ \"$V\" = pass ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16dd-gate-catches-quality-regression",
+    "description": "REGRESSION AS A GATE: the regressed output set trips required assertions (dropped ID, invented refund, guaranteed date) and the gate exits non-zero — quality drift is blocked before prod",
+    "command": "if scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set regressed >/dev/null 2>&1; then echo fail; else echo pass; fi",
+    "expect": "pass"
+  }
+]

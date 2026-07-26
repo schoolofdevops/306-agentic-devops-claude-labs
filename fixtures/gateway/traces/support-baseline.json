@@ -1,0 +1,17 @@
+{
+  "trace_id": "req-support-3c71",
+  "route": "support",
+  "model": "fast",
+  "provider": "provider-a/fast-1",
+  "total_ms": 780,
+  "spans": [
+    { "name": "gateway.intake", "kind": "application", "ms": 12 },
+    { "name": "gateway.prompt_assembly", "kind": "application", "ms": 28 },
+    { "name": "gateway.queue_wait", "kind": "application", "ms": 60 },
+    { "name": "provider.time_to_first_token", "kind": "provider", "ms": 260 },
+    { "name": "provider.generation", "kind": "provider", "ms": 300 },
+    { "name": "gateway.response_shaping", "kind": "application", "ms": 120 }
+  ],
+  "tokens": { "input": 300, "output": 400 },
+  "note": "One real support request on the last-known-good route. Provider spans total ~560ms, application spans ~232ms. Same application code, same prompt — only the model tier differs from the regressed trace."
+}

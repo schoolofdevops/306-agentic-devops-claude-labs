@@ -1,0 +1,74 @@
+[
+  {
+    "id": "m12-container-base-pinned",
+    "description": "CONTAINER REVIEW: the orders-api Dockerfile pins a versioned base image (python:3.12-slim), not :latest — the build is reproducible",
+    "command": "grep -Eq '^FROM python:3\\.[0-9]+-slim' app/orders-api/Dockerfile && ! grep -Eq '^FROM [^ ]+:latest' app/orders-api/Dockerfile && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-container-multistage",
+    "description": "CONTAINER REVIEW: the orders-api Dockerfile is multi-stage (two FROM lines) — the compiler stays in the builder, only the artifact ships in the slim runtime",
+    "command": "[ \"$(grep -c '^FROM' app/orders-api/Dockerfile)\" -ge 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-render-probe-path-visible",
+    "description": "RENDER REVIEW: helm template surfaces the readiness probe path as a concrete string in the rendered manifest (review the output, not the template)",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /health' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-render-strategy-readable",
+    "description": "RENDER REVIEW: the rollout strategy is readable as data in the render — maxUnavailable is a concrete value a reviewer can gate on",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -Eq 'maxUnavailable:' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-chart-lints-clean",
+    "description": "RENDER REVIEW: the chart lints clean (0 failed) — a well-formed chart can still carry the two defects, which is why lint is not the review",
+    "command": "helm lint platform/helm/orders-api 2>/dev/null | grep -Eq '0 chart\\(s\\) failed' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-enforcement-readonly-verbs",
+    "description": "ENFORCEMENT: the read-only kubeconfig's ClusterRole grants exactly get/list/watch and no write verb — the agent's default identity cannot mutate the cluster",
+    "command": "grep -Eq 'verbs: \\[\"get\", \"list\", \"watch\"\\]' platform/kubeconfigs/readonly.yaml && ! grep -Eq '\"(create|update|delete|patch)\"' platform/kubeconfigs/readonly.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-enforcement-pod-security-baseline",
+    "description": "ENFORCEMENT: the northstar namespace enforces the baseline Pod Security Standard at admission — violating pods are rejected at creation",
+    "command": "grep -Eq 'pod-security.kubernetes.io/enforce: baseline' platform/policies/pod-security.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-gitops-gate-denies-namespace-delete",
+    "description": "GITOPS: the change gate denies deleting the northstar namespace from an agent identity (exit 2) — an unbounded blast radius is refused",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl delete namespace northstar\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-gitops-gate-denies-wildcard-mutation",
+    "description": "GITOPS: the change gate denies a mutating kubectl across all namespaces (-A) from an agent identity (exit 2)",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl delete pods -A\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-gitops-gate-denies-docker-push",
+    "description": "GITOPS: the change gate denies docker push from an agent identity (exit 2) — images ship through CI, not the agent",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:latest\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-gitops-propose-is-executable",
+    "description": "GITOPS: the proposal script exists and is executable — the agent's structural stopping point (edit desired state, propose on a branch, stop)",
+    "command": "[ -x scripts/gitops-propose.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-gitops-propose-refuses-cluster-write",
+    "description": "GITOPS: gitops-propose contains no cluster-write command (no kubectl apply / helm upgrade) — it writes to Git and stops, never to a cluster",
+    "command": "! grep -Eq '(kubectl[[:space:]]+(apply|delete|create|patch|scale)|helm[[:space:]]+(upgrade|install))' scripts/gitops-propose.sh && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

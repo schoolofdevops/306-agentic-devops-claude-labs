@@ -1,0 +1,21 @@
+{
+  "from_role": "sre-investigator",
+  "to_role": "ops-lead",
+  "evidence": {
+    "service": "orders-api",
+    "status": "degraded",
+    "checks": { "healthz": true, "readyz": false },
+    "hypothesis": "orders-api readyz probe fails because its inventory-api dependency check is returning false",
+    "confidence": "high",
+    "sources": ["curl -s localhost:8080/readyz", "app/orders-api/src/health.py:25"]
+  },
+  "recommendations": [
+    "Investigate inventory-api reachability from orders-api",
+    "Review the readyz dependency check threshold in health.py"
+  ],
+  "out_of_scope": [
+    "Did not inspect Terraform state",
+    "Did not check network policies",
+    "Did not attempt any restart or config change (read-only role)"
+  ]
+}

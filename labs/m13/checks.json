@@ -1,0 +1,98 @@
+[
+  {
+    "id": "m13-headless-print-flag",
+    "description": "HEADLESS: claude exposes -p/--print for non-interactive CI use — the pipeline runs the agent headless, not in a REPL",
+    "command": "claude --help 2>/dev/null | grep -Eq '\\-p, --print' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-headless-output-json",
+    "description": "HEADLESS: claude exposes --output-format json — the pipeline gets a machine-parseable result to gate on, not free text",
+    "command": "claude --help 2>/dev/null | grep -Eq 'output-format' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-headless-json-schema",
+    "description": "HEADLESS: claude exposes --json-schema — structured output can be constrained to a release-verdict contract the pipeline validates",
+    "command": "claude --help 2>/dev/null | grep -Eq 'json-schema' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-hermetic-bare-flag",
+    "description": "HERMETIC: claude exposes --bare (skip hooks/LSP/plugins) — the analysis runs without project context for a reproducible, hermetic verdict",
+    "command": "claude --help 2>/dev/null | grep -Eq '\\-\\-bare' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-release-schema-present",
+    "description": "SCHEMA: the release-verdict JSON schema exists — the output contract the hermetic analysis is bound to (verdict + blockers + evidence)",
+    "command": "jq -e '.properties.verdict.enum | index(\"block\")' contracts/release-verdict.schema.json >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-pipeline-analyze-executable",
+    "description": "PIPELINE: pipeline-analyze.sh exists and is executable — the deterministic reference for what the in-CI agent analysis produces",
+    "command": "[ -x scripts/pipeline-analyze.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-pipeline-analyze-no-mutation",
+    "description": "LEAST PRIVILEGE: the pipeline analyzer contains no cluster/infra write command — the agent in CI analyzes, it never applies (no kubectl apply / helm upgrade / terraform apply / docker push)",
+    "command": "! grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch)|helm[[:space:]]+(upgrade|install)|terraform[[:space:]]+apply|docker[[:space:]]+push)' scripts/pipeline-analyze.sh && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-pipeline-blocks-bad-release",
+    "description": "GATE: pipeline-analyze BLOCKS the current release candidate — the chart's readiness probe (/health) is not a route the app serves, caught from executable evidence",
+    "command": "bash scripts/pipeline-analyze.sh --field verdict 2>/dev/null",
+    "expect": "block"
+  },
+  {
+    "id": "m13-pipeline-blocker-readiness",
+    "description": "GATE EVIDENCE: the block reason names the readiness mismatch — the probe path is checked against the routes the app ACTUALLY serves, not a doc claim",
+    "command": "bash scripts/pipeline-analyze.sh --field blockers 2>/dev/null | grep -Eq 'readiness: probe path /health is not a route the app serves' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-sod-reviewer-cannot-edit",
+    "description": "SEPARATION OF DUTIES: the change-reviewer identity has no Edit/Write tool — the agent that approves cannot be the agent that authored the change",
+    "command": "grep -Eq 'disallowedTools: \\[.*\"Edit\".*\"Write\"' .claude/agents/change-reviewer.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-sod-proposer-is-gitonly",
+    "description": "SEPARATION OF DUTIES: the platform-engineer proposer is Git-only — its description forbids applying to the cluster, so it proposes but cannot merge or deploy",
+    "command": "grep -Eiq 'never|git-only' .claude/agents/platform-engineer.md && grep -Eq 'gitops-propose|propose' .claude/agents/platform-engineer.md 2>/dev/null; grep -Eiq 'NEVER .*(applies|apply|deletes namespaces|scales prod)' .claude/agents/platform-engineer.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-gate-blocks-prod-apply",
+    "description": "APPROVAL BOUNDARY: the change gate denies terraform apply on production from an agent identity (exit 2) — production changes route through GitOps, never a direct apply in CI",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform apply -auto-approve -var env=production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-gate-blocks-docker-push",
+    "description": "APPROVAL BOUNDARY: the change gate denies docker push from an agent identity (exit 2) — images are built and published by CI, not from the agent in the pipeline",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:1.4.0\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-canary-verify-executable",
+    "description": "CANARY: canary-verify.sh exists and is executable — the post-deploy health verdict the agent reads before a promote decision",
+    "command": "[ -x scripts/canary-verify.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-canary-healthy-promotes",
+    "description": "CANARY: a healthy canary (error rate + p95 within SLO, all replicas Ready) yields verdict=promote",
+    "command": "bash scripts/canary-verify.sh fixtures/canary/canary-healthy.json --field verdict 2>/dev/null",
+    "expect": "promote"
+  },
+  {
+    "id": "m13-canary-unhealthy-rolls-back",
+    "description": "CANARY: an unhealthy canary (SLO breach and/or replicas not Ready) yields verdict=rollback — the signal to not promote",
+    "command": "bash scripts/canary-verify.sh fixtures/canary/canary-unhealthy.json --field verdict 2>/dev/null",
+    "expect": "rollback"
+  }
+]

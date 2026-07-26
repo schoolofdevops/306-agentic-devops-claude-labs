@@ -1,0 +1,44 @@
+[
+  {
+    "id": "m13dd-runbook-claims-status-endpoint",
+    "description": "STALE DOC: the health-verification runbook instructs checking /api/v1/status — a plausible, authoritative-looking endpoint a repair could be built on",
+    "command": "grep -Eq 'api/v1/status' runbooks/stale-runbook-wrong-endpoint.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13dd-runbook-is-stale-dated",
+    "description": "STALE DOC: the runbook is dated 2024 and claims the endpoint was 'added in v0.8.0' — it reads as trustworthy, which is exactly why a doc-anchored repair is dangerous",
+    "command": "grep -Eq 'added in v0\\.8\\.0' runbooks/stale-runbook-wrong-endpoint.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13dd-app-has-no-status-route",
+    "description": "LIVE EVIDENCE: the orders-api source serves NO /api/v1/status route — the runbook's endpoint is fictional; the code is the ground truth",
+    "command": "! grep -Eq '/api/v1/status' app/orders-api/src/*.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13dd-app-real-routes",
+    "description": "LIVE EVIDENCE: the real health routes the app serves are /healthz and /readyz — an executable fact that overrides any documentation claim",
+    "command": "grep -Eq '@router.get\\(\"/healthz\"\\)' app/orders-api/src/health.py && grep -Eq '@router.get\\(\"/readyz\"\\)' app/orders-api/src/health.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13dd-doc-repair-contradicts-source",
+    "description": "CONTRADICTION: the doc-anchored repair (point readiness at /api/v1/status) is NOT among the app's real routes — the repair contradicts the executable evidence",
+    "command": "ROUTES=$(grep -oE '@router.get\\(\"(/[^\"]*)\"\\)' app/orders-api/src/health.py | sed -E 's/.*\"(.*)\".*/\\1/'); echo \"$ROUTES\" | grep -qx '/api/v1/status' && echo fail || echo pass",
+    "expect": "pass"
+  },
+  {
+    "id": "m13dd-pipeline-rejects-doc-repair",
+    "description": "PIPELINE IS AUTHORITATIVE: pipeline-analyze BLOCKS a chart whose readiness probe points at the doc's /api/v1/status — live evidence beats the runbook, and the gate enforces it",
+    "command": "helm template orders-api platform/helm/orders-api --set readinessProbe.httpGet.path=/api/v1/status 2>/dev/null | awk '/readinessProbe:/{f=1} f&&/path:/{print $2; exit}' | grep -qx '/api/v1/status' && ROUTES=$(grep -oE '@router.get\\(\"(/[^\"]*)\"\\)' app/orders-api/src/health.py | sed -E 's/.*\"(.*)\".*/\\1/') && ! echo \"$ROUTES\" | grep -qx '/api/v1/status' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13dd-correct-fix-is-healthz",
+    "description": "THE FIX: the correct readiness path is /healthz — a route the app actually serves — proven by rendering the chart with the override, no cluster and no doc required",
+    "command": "helm template orders-api platform/helm/orders-api --set readinessProbe.httpGet.path=/healthz 2>/dev/null | awk '/readinessProbe:/{f=1} f&&/path:/{print $2; exit}' | grep -qx '/healthz' && grep -Eq '@router.get\\(\"/healthz\"\\)' app/orders-api/src/health.py && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

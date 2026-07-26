@@ -1,0 +1,68 @@
+[
+  {
+    "id": "m19dd-plugin-manifest-present",
+    "description": "PACKAGING: the operating layer ships as a plugin — a .claude-plugin/plugin.json manifest exists, so the starter is an installable unit, not a pile of loose files",
+    "command": "[ -f starter/.claude-plugin/plugin.json ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19dd-plugin-semver",
+    "description": "VERSIONING: the starter version is valid semver (MAJOR.MINOR.PATCH) — a versioned product, so a consumer can pin a known-good release",
+    "command": "jq -r '.version' starter/.claude-plugin/plugin.json | grep -Eq '^[0-9]+\\.[0-9]+\\.[0-9]+$' && echo semver || echo bad",
+    "expect": "semver"
+  },
+  {
+    "id": "m19dd-changelog-present-and-matches",
+    "description": "VERSIONING: a CHANGELOG exists AND carries an entry for the current plugin version — the update record is not allowed to drift from the shipped version",
+    "command": "V=$(jq -r '.version' starter/.claude-plugin/plugin.json); grep -q \"\\[$V\\]\" starter/CHANGELOG.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19dd-changelog-deprecation-policy",
+    "description": "DEPRECATION: the CHANGELOG states a deprecation policy — a role or hook is retired over releases, never removed silently",
+    "command": "grep -qi 'deprecation policy' starter/CHANGELOG.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19dd-ladder-four-stages",
+    "description": "ADOPTION LADDER: the rollout policy defines exactly four stages — read-only pilot, PR proposals, approval-gated changes, bounded closed loop",
+    "command": "grep -cE '^  - stage:' starter/adoption-ladder.yaml",
+    "expect": "4"
+  },
+  {
+    "id": "m19dd-ladder-starts-read-only",
+    "description": "ADOPTION LADDER: stage 1 is read-only — the agent reads, diagnoses and suggests before it is ever allowed to write, so trust is earned not granted",
+    "command": "grep -q 'name: read-only-pilot' starter/adoption-ladder.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19dd-ladder-ends-bounded-loop",
+    "description": "ADOPTION LADDER: the top rung is a BOUNDED closed loop — the agent acts within fail-closed guardrails a human audits post-hoc, never an unbounded free hand",
+    "command": "grep -q 'name: bounded-closed-loop' starter/adoption-ladder.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19dd-every-stage-has-rollback-trigger",
+    "description": "ADOPTION LADDER: every stage names a rollback trigger — each rung knows what drops it back down, so widening authority is always reversible",
+    "command": "S=$(grep -cE '^  - stage:' starter/adoption-ladder.yaml); R=$(grep -cE '^    rollback_trigger:' starter/adoption-ladder.yaml); [ \"$S\" = \"$R\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19dd-quality-gate-guards-promotion",
+    "description": "REGRESSION GATE: the quality gate PASSES a good run and FAILS a degraded one — a plugin or model change cannot graduate a rung on a run that regressed",
+    "command": "scripts/regression-gate.sh fixtures/capstone/run-capstone.json >/dev/null 2>&1 && ! scripts/regression-gate.sh fixtures/runs/generalist.json >/dev/null 2>&1 && echo guarded || echo open",
+    "expect": "guarded"
+  },
+  {
+    "id": "m19dd-authority-gate-guards-promotion",
+    "description": "AUTHORITY REGRESSION GATE: the authority gate holds — a reader that silently gained write authority would flip this check, catching a governance regression before rollout",
+    "command": "scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; A=$?; scripts/role-authority-check.sh iac-engineer write >/dev/null 2>&1; B=$?; [ \"$A\" = \"3\" ] && [ \"$B\" = \"0\" ] && echo held || echo breached",
+    "expect": "held"
+  },
+  {
+    "id": "m19dd-starter-separates-reusable-from-project",
+    "description": "PACKAGING BOUNDARY: the MANIFEST separates what ships (reusable governance) from what stays project-specific (Northstar incidents, fixtures, answer keys) — the starter is portable, not a copy of one repo",
+    "command": "grep -qi 'stays project-specific' starter/MANIFEST.md && grep -qi 'belongs in the starter' starter/MANIFEST.md && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

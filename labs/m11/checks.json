@@ -1,0 +1,122 @@
+[
+  {
+    "id": "m11-state-safety-apply-denied",
+    "description": "STATE SAFETY: the change gate DENIES terraform apply on production — mutation is a separate authority the agent cannot exercise",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod apply\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo denied || echo allowed",
+    "expect": "denied"
+  },
+  {
+    "id": "m11-state-safety-plan-allowed",
+    "description": "STATE SAFETY: terraform plan on production is ALLOWED — planning is read-only, only apply is gated",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod plan\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo allowed || echo denied",
+    "expect": "allowed"
+  },
+  {
+    "id": "m11-plan-good-clean",
+    "description": "PLAN ANALYSIS: a plan of pure creates (the known-good plan) analyzes to verdict 'clean' — nothing destroyed, nothing replaced",
+    "command": "scripts/plan-analyze.sh infra/fixtures/plan-good.json --field verdict",
+    "expect": "clean"
+  },
+  {
+    "id": "m11-plan-blast-radius",
+    "description": "BLAST RADIUS: the good plan touches all 31 resources — the analyzer reports the count a reviewer would gate on",
+    "command": "scripts/plan-analyze.sh infra/fixtures/plan-good.json --field blast_radius",
+    "expect": "31"
+  },
+  {
+    "id": "m11-stateful-replace-blocks",
+    "description": "STATEFUL REPLACE: the plan that recreates the RDS instance analyzes to 'block' — a stateful replacement is a data-loss risk, not a routine change",
+    "command": "scripts/plan-analyze.sh infra/fixtures/plan-stateful-replace.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11-stateful-replace-names-resource",
+    "description": "STATEFUL REPLACE: the analyzer names the exact resource being destroyed and recreated — the database, so the finding is actionable",
+    "command": "scripts/plan-analyze.sh infra/fixtures/plan-stateful-replace.json --field stateful_replaced",
+    "expect": "module.database.aws_db_instance.main"
+  },
+  {
+    "id": "m11-security-scan-wide-network-blocks",
+    "description": "SECURITY SCAN: the plan adding a 0.0.0.0/0 rule scans to 'block' — an internet-open ingress on a datastore port is a page-the-team finding",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-wide-network.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11-security-scan-names-sensitive-port",
+    "description": "SENSITIVE EXPOSURE: the scan pinpoints the rule opening Postgres (5432) to the whole internet — the datastore, not a web tier",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-wide-network.json --field sensitive_exposed",
+    "expect": "module.networking.aws_security_group_rule.db_public_debug:5432"
+  },
+  {
+    "id": "m11-security-scan-good-clean",
+    "description": "SECURITY SCAN: the good plan has no wide-open or public exposure — verdict 'clean', so the scan does not cry wolf",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-good.json --field verdict",
+    "expect": "clean"
+  },
+  {
+    "id": "m11-cost-delta",
+    "description": "COST ESTIMATION: the oversize change is a +$2847/mo delta over baseline — the number that turns a sizing choice into a budget decision",
+    "command": "scripts/cost-compare.sh infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field delta",
+    "expect": "2847"
+  },
+  {
+    "id": "m11-cost-blocks-over-2x",
+    "description": "FINOPS THRESHOLD: a per-resource cost jump past 2x (the RDS instance grows 16x) blocks — the FinOps role's 'flag changes > 2x' rule, enforced",
+    "command": "scripts/cost-compare.sh infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11-drift-detects-new-wide-open",
+    "description": "ENVIRONMENT DRIFT: diffing the candidate against the known-good baseline surfaces the NEW 0.0.0.0/0 rule that drifted in — verdict 'block'",
+    "command": "scripts/plan-drift.sh infra/fixtures/plan-good.json infra/fixtures/plan-wide-network.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11-rollback-stateful-requires-restore",
+    "description": "ROLLBACK REVIEW: the stateful-replace plan is judged irreversible — its approval REQUIRES a restore-from-backup plan, it is not a clean roll back",
+    "command": "scripts/rollback-review.sh infra/fixtures/plan-stateful-replace.json --field verdict",
+    "expect": "requires-restore-plan"
+  },
+  {
+    "id": "m11-rollback-good-approve",
+    "description": "ROLLBACK REVIEW: a pure-create plan is reversible (destroy what you made) — verdict 'approve', no restore plan needed",
+    "command": "scripts/rollback-review.sh infra/fixtures/plan-good.json --field verdict",
+    "expect": "approve"
+  },
+  {
+    "id": "m11-authority-iac-can-write",
+    "description": "AUTHORITY: the IaC engineer STRUCTURALLY carries a write tool — authoring HCL is in its role (exit 0)",
+    "command": "scripts/role-authority-check.sh iac-engineer write >/dev/null 2>&1; [ $? -eq 0 ] && echo capable || echo blocked",
+    "expect": "capable"
+  },
+  {
+    "id": "m11-authority-finops-cannot-write",
+    "description": "AUTHORITY: the FinOps analyst CANNOT write — it reads plans and prices them, it does not mutate infrastructure (exit 3)",
+    "command": "scripts/role-authority-check.sh finops-analyst write >/dev/null 2>&1; [ $? -eq 3 ] && echo blocked || echo capable",
+    "expect": "blocked"
+  },
+  {
+    "id": "m11-agent-cost-receipt-mixed-cheaper",
+    "description": "AGENT-RUN COST RECEIPT: the mixed-model handoff chain is cheaper than running every role on opus — right-sizing the model per role is itself a FinOps decision",
+    "command": "scripts/agent-cost-receipt.sh --field verdict",
+    "expect": "mixed-model-cheaper"
+  },
+  {
+    "id": "m11-pipeline-approves-good",
+    "description": "HANDOFF CHAIN: the good plan clears all four stages (IaC -> Security -> FinOps -> Change Reviewer) and the pipeline verdict is 'approve'",
+    "command": "scripts/change-pipeline.sh infra/fixtures/plan-good.json infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-good.json --field verdict",
+    "expect": "approve"
+  },
+  {
+    "id": "m11-pipeline-blocks-stateful",
+    "description": "HANDOFF CHAIN: one stage's block stops the line — the stateful-replace plan is blocked by the pipeline even though its syntax is valid",
+    "command": "scripts/change-pipeline.sh infra/fixtures/plan-stateful-replace.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11-plan-analyze-fail-closed",
+    "description": "FAIL-CLOSED: handed a file that is not a plan JSON, the analyzer refuses (exit 1) rather than emit a made-up verdict",
+    "command": "scripts/plan-analyze.sh infra/versions.tf --field verdict >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

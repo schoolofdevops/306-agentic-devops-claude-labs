@@ -1,0 +1,32 @@
+[
+  {
+    "id": "m4-collector-pipelines",
+    "description": "agentops/collector.yaml defines metrics + logs pipelines and a file exporter",
+    "command": "[ -f agentops/collector.yaml ] && yq -e '.service.pipelines.metrics and .service.pipelines.logs and .exporters.file' agentops/collector.yaml >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m4-ledger-script-present",
+    "description": "agentops/ledger.py exists and parses claude_code.api_request into model/cost/tokens",
+    "command": "[ -f agentops/ledger.py ] && grep -q 'claude_code.api_request' agentops/ledger.py && grep -q 'cost_usd' agentops/ledger.py && grep -q 'input_tokens' agentops/ledger.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m4-budget-check-present",
+    "description": "agentops/budget-check.sh exists and exits non-zero on an over-budget run",
+    "command": "[ -f agentops/budget-check.sh ] && grep -q 'BUDGET ALERT' agentops/budget-check.sh && grep -Eq 'exit 1' agentops/budget-check.sh && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m4-ledger-produces-row",
+    "description": "ledger.py emits a valid JSON row (model + cost_usd + input_tokens keys) from a synthetic api_request telemetry line",
+    "command": "T=$(mktemp); printf '{\"resourceLogs\":[{\"scopeLogs\":[{\"logRecords\":[{\"body\":{\"stringValue\":\"claude_code.api_request\"},\"attributes\":[{\"key\":\"session.id\",\"value\":{\"stringValue\":\"abc123de\"}},{\"key\":\"model\",\"value\":{\"stringValue\":\"claude-sonnet-5\"}},{\"key\":\"input_tokens\",\"value\":{\"intValue\":\"16000\"}},{\"key\":\"output_tokens\",\"value\":{\"intValue\":\"40\"}},{\"key\":\"cost_usd\",\"value\":{\"doubleValue\":0.11}},{\"key\":\"duration_ms\",\"value\":{\"intValue\":\"2000\"}},{\"key\":\"effort\",\"value\":{\"stringValue\":\"high\"}}]}]}]}]}\\n' > \"$T\"; python3 agentops/ledger.py \"$T\" check | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r[\"model\"]==\"claude-sonnet-5\" and r[\"input_tokens\"]==16000 and r[\"cost_usd\"]==0.11' && rm -f \"$T\" && echo pass || { rm -f \"$T\"; echo fail; }",
+    "expect": "pass"
+  },
+  {
+    "id": "m4-budget-alert-fires",
+    "description": "budget-check.sh flags a run over the token budget and exits non-zero",
+    "command": "T=$(mktemp); printf '{\"resourceLogs\":[{\"scopeLogs\":[{\"logRecords\":[{\"body\":{\"stringValue\":\"claude_code.api_request\"},\"attributes\":[{\"key\":\"model\",\"value\":{\"stringValue\":\"claude-sonnet-5\"}},{\"key\":\"input_tokens\",\"value\":{\"intValue\":\"16000\"}},{\"key\":\"output_tokens\",\"value\":{\"intValue\":\"40\"}},{\"key\":\"cost_usd\",\"value\":{\"doubleValue\":0.11}},{\"key\":\"duration_ms\",\"value\":{\"intValue\":\"2000\"}}]}]}]}]}\\n' > \"$T\"; if ./agentops/budget-check.sh \"$T\" 1000 >/dev/null 2>&1; then rm -f \"$T\"; echo fail; else rm -f \"$T\"; echo pass; fi",
+    "expect": "pass"
+  }
+]

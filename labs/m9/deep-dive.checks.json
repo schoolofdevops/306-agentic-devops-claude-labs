@@ -1,0 +1,62 @@
+[
+  {
+    "id": "m9dd-sre-can-read",
+    "description": "POSITIVE: the SRE investigator CAN read — querying health and logs is its whole job",
+    "command": "scripts/role-authority-check.sh sre-investigator read >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-sre-cannot-write",
+    "description": "FORBIDDEN: the SRE investigator CANNOT edit deployments — it carries no write tool, so the boundary is structural, not a request it might ignore",
+    "command": "scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-finops-can-read",
+    "description": "POSITIVE: the FinOps analyst CAN read plan fixtures — pricing a plan requires reading it",
+    "command": "scripts/role-authority-check.sh finops-analyst read >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-finops-cannot-write",
+    "description": "FORBIDDEN: the FinOps analyst CANNOT apply or edit infrastructure — it reads plans and returns a number, it never changes the estate",
+    "command": "scripts/role-authority-check.sh finops-analyst write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-reviewer-can-read",
+    "description": "POSITIVE: the change-reviewer CAN read — it needs full context to judge a change",
+    "command": "scripts/role-authority-check.sh change-reviewer read >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-reviewer-cannot-modify-candidate",
+    "description": "FORBIDDEN: the change-reviewer CANNOT modify the candidate branch — a reviewer that edits the thing under review has destroyed its own independence",
+    "command": "scripts/role-authority-check.sh change-reviewer write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-security-reviewer-cannot-write",
+    "description": "FORBIDDEN: the security-reviewer CANNOT patch what it audits — even though the authority-matrix lists a write path, the agent-file tool grant is the tighter boundary and drops it",
+    "command": "scripts/role-authority-check.sh security-reviewer write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-iac-engineer-can-write",
+    "description": "POSITIVE-AND-BOUNDED: the IaC engineer CAN write HCL (authoring is its role) but the M8 change gate still denies a production apply — authority and enforcement are two different layers",
+    "command": "scripts/role-authority-check.sh iac-engineer write >/dev/null 2>&1 && printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform apply -auto-approve infra/environments/production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-regression-full-forbidden-matrix",
+    "description": "REGRESSION: the full forbidden-action matrix holds in one pass — all four read-only roles blocked from write, both authoring roles permitted",
+    "command": "ok=true; for r in sre-investigator security-reviewer finops-analyst change-reviewer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 3 ] || ok=false; done; for r in iac-engineer platform-engineer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 0 ] || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9dd-authority-check-is-deterministic",
+    "description": "the authority check returns the SAME verdict on repeated runs — it is a deterministic script, so the boundary is a test you can put in CI, not a judgment that varies",
+    "command": "a=$(scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; echo $?); b=$(scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; echo $?); c=$(scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; echo $?); [ \"$a\" = \"$b\" ] && [ \"$b\" = \"$c\" ] && [ \"$a\" = 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

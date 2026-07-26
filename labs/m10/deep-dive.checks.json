@@ -1,0 +1,62 @@
+[
+  {
+    "id": "m10dd-sdk-script-present",
+    "description": "the Agent SDK audit script ships and is valid JS (node can parse and run it)",
+    "command": "node --check labs/m10/audit-sdk.mjs >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-sdk-fans-out-and-joins",
+    "description": "the SDK fan-out audits all four modules and joins into one normalized report (same partition as the shell workflow)",
+    "command": "node labs/m10/audit-sdk.mjs | jq -r '.modules_audited | sort | join(\",\")'",
+    "expect": "compute,database,networking,storage"
+  },
+  {
+    "id": "m10dd-sdk-labels-orchestration",
+    "description": "the SDK report labels its orchestration style — this is the Agent SDK expression of the workflow, distinct from the shell version",
+    "command": "node labs/m10/audit-sdk.mjs | jq -r '.orchestration'",
+    "expect": "agent-sdk"
+  },
+  {
+    "id": "m10dd-sdk-matches-shell-workflow",
+    "description": "EQUIVALENCE: the SDK fan-out and the shell workflow produce the IDENTICAL estate evidence and verdict — same orchestration shape, two implementations",
+    "command": "a=$(node labs/m10/audit-sdk.mjs | jq -S '{modules_audited,total_security_findings,total_cost_delta_usd,verdict,evidence}'); b=$(scripts/audit-orchestrate.sh | jq -S '{modules_audited,total_security_findings,total_cost_delta_usd,verdict,evidence}'); [ \"$a\" = \"$b\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-sdk-deterministic-across-concurrency",
+    "description": "RUNAWAY CONTROL: the SDK semaphore caps in-flight workers, and the answer is identical at --max-parallel 1 and 4 — concurrency changes speed, never the result",
+    "command": "a=$(node labs/m10/audit-sdk.mjs --max-parallel 1 | jq -S 'del(.max_parallel)'); b=$(node labs/m10/audit-sdk.mjs --max-parallel 4 | jq -S 'del(.max_parallel)'); [ \"$a\" = \"$b\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-sdk-rejects-duplication",
+    "description": "DUPLICATION GUARD: the SDK partition rejects a repeated module (exit 1), same contract as the shell workflow — one module, one worker",
+    "command": "node labs/m10/audit-sdk.mjs --modules 'networking networking' >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-sdk-fail-closed-phantom",
+    "description": "FAIL-CLOSED: the SDK fan-out over a nonexistent module blocks (exit 1) rather than auditing a phantom partition",
+    "command": "node labs/m10/audit-sdk.mjs --modules 'networking phantom' >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-sdk-fail-closed-bad-cap",
+    "description": "FAIL-CLOSED: a concurrency cap below 1 is rejected (exit 1) — an SDK fan-out with zero workers is a misconfiguration",
+    "command": "node labs/m10/audit-sdk.mjs --max-parallel 0 >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-sdk-live-fails-closed-without-sdk",
+    "description": "FAIL-CLOSED: --live without the SDK installed blocks (exit 1) with a clear message rather than silently falling back — the live worker is a real agent or nothing",
+    "command": "node labs/m10/audit-sdk.mjs --live >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10dd-live-worker-is-read-only-and-budgeted",
+    "description": "the live SDK worker is provisioned like an M9 role bundle: a read-only tool set (no write tool) and a turn budget (maxTurns) — orchestration inherits the role boundaries",
+    "command": "grep -q 'allowedTools' labs/m10/audit-sdk.mjs && grep -q 'maxTurns' labs/m10/audit-sdk.mjs && ! grep -Eq 'allowedTools.*\"(Edit|Write)\"' labs/m10/audit-sdk.mjs && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

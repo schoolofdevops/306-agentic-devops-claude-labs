@@ -1,0 +1,110 @@
+[
+  {
+    "id": "m10-topology-subagent",
+    "description": "the decision table routes an interactive, sequential, single-job task to a SUBAGENT (delegate and wait)",
+    "command": "scripts/orchestration-topology.sh y n n n | awk -F= '/^topology=/{print $2}'",
+    "expect": "subagent"
+  },
+  {
+    "id": "m10-topology-fork",
+    "description": "an interactive task with independent parallel sub-tasks routes to a FORK (parallel, parent stays live)",
+    "command": "scripts/orchestration-topology.sh y y n n | awk -F= '/^topology=/{print $2}'",
+    "expect": "fork"
+  },
+  {
+    "id": "m10-topology-workflow",
+    "description": "a reproducible, parallel task routes to a WORKFLOW (deterministic fan-out/join, CI-able)",
+    "command": "scripts/orchestration-topology.sh n y y n | awk -F= '/^topology=/{print $2}'",
+    "expect": "workflow"
+  },
+  {
+    "id": "m10-topology-headless",
+    "description": "a reproducible, non-interactive, one-shot task routes to HEADLESS (claude -p)",
+    "command": "scripts/orchestration-topology.sh n n y n | awk -F= '/^topology=/{print $2}'",
+    "expect": "headless"
+  },
+  {
+    "id": "m10-topology-routine",
+    "description": "a reproducible, long-running task routes to a ROUTINE (scheduled workflow)",
+    "command": "scripts/orchestration-topology.sh n n y y | awk -F= '/^topology=/{print $2}'",
+    "expect": "routine"
+  },
+  {
+    "id": "m10-topology-skill",
+    "description": "a single interactive job with no parallelism and no long-running work needs no orchestration at all — a SKILL",
+    "command": "scripts/orchestration-topology.sh n n n n | awk -F= '/^topology=/{print $2}'",
+    "expect": "skill"
+  },
+  {
+    "id": "m10-topology-fail-closed",
+    "description": "FAIL-CLOSED: the decision table refuses an ambiguous task shape (exit 1) rather than guessing a topology",
+    "command": "scripts/orchestration-topology.sh y n maybe n >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-synth-corroborated",
+    "description": "three INDEPENDENT hypotheses converging on one root cause synthesize to 'corroborated' — real agreement from independent evidence",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"curl /metrics\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"medium\",\"sources\":[\"docker stats\"],\"derived_from\":null},{\"dimension\":\"recent-change\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"medium\",\"sources\":[\"git log\"],\"derived_from\":null}]' | scripts/synthesize-hypotheses.sh | awk -F= '/^verdict=/{print $2}'",
+    "expect": "corroborated"
+  },
+  {
+    "id": "m10-synth-rejects-consensus-theater",
+    "description": "CONSENSUS THEATER: a hypothesis derived_from a peer (not its own evidence) is rejected as contamination (exit 4), not counted as a confirmation",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"curl /metrics\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"docker stats\"],\"derived_from\":\"application-retry\"}]' | scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-synth-surfaces-disagreement",
+    "description": "DISAGREEMENT: independent dimensions that diverge on root cause synthesize to 'disagreement' — a split is surfaced as signal, not averaged into a majority vote",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"curl /metrics\"],\"derived_from\":null},{\"dimension\":\"recent-change\",\"root_cause\":\"bad-deploy\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"git log\"],\"derived_from\":null}]' | scripts/synthesize-hypotheses.sh | awk -F= '/^verdict=/{print $2}'",
+    "expect": "disagreement"
+  },
+  {
+    "id": "m10-synth-loops-on-missing-evidence",
+    "description": "MISSING EVIDENCE: an inconclusive dimension makes the synthesis withhold a verdict ('need-more-evidence') rather than conclude on partial data",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"curl /metrics\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":null,\"status\":\"inconclusive\",\"confidence\":\"low\",\"sources\":[\"docker stats\"],\"derived_from\":null}]' | scripts/synthesize-hypotheses.sh | awk -F= '/^verdict=/{print $2}'",
+    "expect": "need-more-evidence"
+  },
+  {
+    "id": "m10-synth-fail-closed",
+    "description": "FAIL-CLOSED: the synthesizer blocks (exit 1) on a single packet — one agent is not a parallel fan-out and cannot corroborate anything",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"x\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"a\"],\"derived_from\":null}]' | scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-audit-fans-out-and-joins",
+    "description": "the estate audit fans out over all four modules and joins into one normalized report covering each module exactly once (no duplication)",
+    "command": "scripts/audit-orchestrate.sh | jq -r '.modules_audited | sort | join(\",\")'",
+    "expect": "compute,database,networking,storage"
+  },
+  {
+    "id": "m10-audit-collects-real-evidence",
+    "description": "the join collects REAL, sourced evidence: the networking module's seven 0.0.0.0/0 CIDRs and the database module's cost spike sum into the estate verdict",
+    "command": "scripts/audit-orchestrate.sh | jq -r '\"sec=\\(.total_security_findings) cost=\\(.total_cost_delta_usd) verdict=\\(.verdict)\"'",
+    "expect": "sec=7 cost=2847 verdict=flag"
+  },
+  {
+    "id": "m10-audit-deterministic-across-concurrency",
+    "description": "RUNAWAY CONTROL: the answer is identical at --max-parallel 1, 2, and 4 — the concurrency cap changes speed, never the result (that is what makes it CI-able)",
+    "command": "a=$(scripts/audit-orchestrate.sh --max-parallel 1 | jq -S 'del(.max_parallel)'); b=$(scripts/audit-orchestrate.sh --max-parallel 2 | jq -S 'del(.max_parallel)'); c=$(scripts/audit-orchestrate.sh --max-parallel 4 | jq -S 'del(.max_parallel)'); [ \"$a\" = \"$b\" ] && [ \"$a\" = \"$c\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-audit-rejects-duplication",
+    "description": "DUPLICATION GUARD: fanning out over a partition with a repeated module fails closed (exit 1) — a module must be audited exactly once",
+    "command": "scripts/audit-orchestrate.sh --modules 'networking networking' >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-audit-fail-closed-phantom-module",
+    "description": "FAIL-CLOSED: a fan-out over a module that does not exist blocks (exit 1) rather than silently auditing a phantom partition",
+    "command": "scripts/audit-orchestrate.sh --modules 'networking phantom' >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-audit-fail-closed-bad-cap",
+    "description": "FAIL-CLOSED: a concurrency cap below 1 is rejected (exit 1) — an orchestration with zero workers is a misconfiguration, not a valid run",
+    "command": "scripts/audit-orchestrate.sh --max-parallel 0 >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

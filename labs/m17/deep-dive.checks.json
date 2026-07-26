@@ -1,0 +1,38 @@
+[
+  {
+    "id": "m17dd-lock-present",
+    "description": "the correlation-scoped concurrency guard exists and is executable — dedup handles the sequential duplicate, the lock handles the concurrent one",
+    "command": "[ -x scripts/triage-lock.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m17dd-lock-acquire",
+    "description": "CONCURRENCY: the first contender for a correlation_id acquires the lock (exit 0) — exactly one holder does the work",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-lock.sh --acquire --cid dd-cid >/dev/null 2>&1; R=$?; scripts/triage-lock.sh --release --cid dd-cid >/dev/null 2>&1; echo $R",
+    "expect": "0"
+  },
+  {
+    "id": "m17dd-lock-rejects-concurrent",
+    "description": "CONCURRENCY: a second contender for a correlation_id already locked is rejected at exit 9 — two triggers for one incident never open two PRs",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-lock.sh --acquire --cid dd-cid >/dev/null 2>&1; scripts/triage-lock.sh --acquire --cid dd-cid >/dev/null 2>&1; R=$?; scripts/triage-lock.sh --release --cid dd-cid >/dev/null 2>&1; echo $R",
+    "expect": "9"
+  },
+  {
+    "id": "m17dd-lock-release-frees",
+    "description": "CONCURRENCY: releasing the lock frees it so a later, non-overlapping run can proceed — the guard rejects OVERLAP, it does not permanently block the correlation_id",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-lock.sh --acquire --cid dd-cid >/dev/null 2>&1; scripts/triage-lock.sh --release --cid dd-cid >/dev/null 2>&1; scripts/triage-lock.sh --status --cid dd-cid",
+    "expect": "free"
+  },
+  {
+    "id": "m17dd-race-exactly-one-winner",
+    "description": "CONCURRENCY (true race): under five simultaneous acquirers for one correlation_id, EXACTLY ONE wins — the mkdir primitive is atomic, so no two loops ever run together",
+    "command": "scripts/triage-run.sh --reset >/dev/null; T=$(mktemp); for i in 1 2 3 4 5; do ( scripts/triage-lock.sh --acquire --cid race >/dev/null 2>&1 && echo win >> \"$T\" ) & done; wait; N=$(wc -l < \"$T\" | tr -d ' '); rm -f \"$T\"; scripts/triage-lock.sh --release --cid race >/dev/null 2>&1; echo $N",
+    "expect": "1"
+  },
+  {
+    "id": "m17dd-lock-distinct-cids-independent",
+    "description": "CONCURRENCY: two DIFFERENT correlation_ids lock independently — the guard is per-incident, so unrelated incidents triage in parallel without blocking each other",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-lock.sh --acquire --cid cid-A >/dev/null 2>&1; scripts/triage-lock.sh --acquire --cid cid-B >/dev/null 2>&1; R=$?; scripts/triage-lock.sh --release --cid cid-A >/dev/null 2>&1; scripts/triage-lock.sh --release --cid cid-B >/dev/null 2>&1; echo $R",
+    "expect": "0"
+  }
+]

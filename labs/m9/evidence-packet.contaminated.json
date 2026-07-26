@@ -1,0 +1,14 @@
+{
+  "from_role": "sre-investigator",
+  "to_role": "ops-lead",
+  "evidence": {
+    "service": "orders-api",
+    "status": "down",
+    "checks": {},
+    "hypothesis": "it's definitely the database, restart everything",
+    "confidence": "high",
+    "sources": []
+  },
+  "recommendations": ["restart the whole stack"],
+  "out_of_scope": []
+}

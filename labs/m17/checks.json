@@ -1,0 +1,86 @@
+[
+  {
+    "id": "m17-triage-run-present",
+    "description": "the unattended triage control loop exists and is executable — the automation counterpart to the interactive investigator",
+    "command": "[ -x scripts/triage-run.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m17-event-validate-present",
+    "description": "the event-envelope validator exists and is executable — a trigger you cannot trust is a trigger you must not act on",
+    "command": "[ -x scripts/event-validate.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m17-envelope-valid",
+    "description": "ENVELOPE: a well-formed CI event validates and carries a correlation_id — the field the whole reliability contract keys off",
+    "command": "scripts/event-validate.sh --field correlation_id fixtures/events/ci-incident.json | grep -q '^INC-002-' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m17-envelope-missing-cid-rejected",
+    "description": "ENVELOPE (fail-closed): an event with no correlation_id is rejected at exit 3 — no correlation_id, no run; it can never be safely deduplicated",
+    "command": "echo '{\"id\":\"x\",\"source\":\"ci\",\"type\":\"t\",\"time\":\"now\",\"subject\":\"orders-api\"}' | scripts/event-validate.sh >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m17-first-run-triaged",
+    "description": "CORRELATION ID: a fresh event is triaged — the loop validates the envelope, collects read-only evidence, and produces one packet",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-run.sh --event fixtures/events/ci-incident.json --field outcome",
+    "expect": "triaged"
+  },
+  {
+    "id": "m17-packet-is-valid-evidence",
+    "description": "STRUCTURED RESULT: the triage packet validates against the sre-investigator evidence schema — a sourced hypothesis with out_of_scope, not free prose",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-run.sh --event fixtures/events/ci-incident.json >/dev/null 2>&1; scripts/triage-run.sh --event fixtures/events/ci-incident.json --field packet 2>/dev/null | bash scripts/evidence-validate.sh >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m17-duplicate-deduplicated",
+    "description": "DEDUPLICATION: the SAME event delivered twice is deduplicated on the second delivery — same event twice must not mean double action",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-run.sh --event fixtures/events/ci-incident.json >/dev/null 2>&1; scripts/triage-run.sh --event fixtures/events/ci-incident.json --field outcome",
+    "expect": "deduplicated"
+  },
+  {
+    "id": "m17-idempotent-one-packet",
+    "description": "IDEMPOTENCY: processing the same correlation_id twice leaves EXACTLY ONE packet — the write is keyed by correlation_id, a re-run is a no-op",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-run.sh --event fixtures/events/ci-incident.json >/dev/null 2>&1; scripts/triage-run.sh --event fixtures/events/ci-incident.json >/dev/null 2>&1; ls agentops/triage-state/packet-*.json 2>/dev/null | wc -l | tr -d ' '",
+    "expect": "1"
+  },
+  {
+    "id": "m17-cancellation-clean",
+    "description": "CANCELLATION: a cancel token aborts the loop cleanly with outcome cancelled — no partial packet is left behind",
+    "command": "scripts/triage-run.sh --reset >/dev/null; C=$(mktemp); scripts/triage-run.sh --event fixtures/events/ci-incident.json --cancel-file \"$C\" --field outcome; rm -f \"$C\"",
+    "expect": "cancelled"
+  },
+  {
+    "id": "m17-cancellation-no-packet",
+    "description": "CANCELLATION: after a cancelled run, zero packets exist — abort means no side effect, not a half-written artifact",
+    "command": "scripts/triage-run.sh --reset >/dev/null; C=$(mktemp); scripts/triage-run.sh --event fixtures/events/ci-incident.json --cancel-file \"$C\" >/dev/null 2>&1; rm -f \"$C\"; ls agentops/triage-state/packet-*.json 2>/dev/null | wc -l | tr -d ' '",
+    "expect": "0"
+  },
+  {
+    "id": "m17-retry-budget-bounded",
+    "description": "RETRY BUDGET + TIMEOUT: a probe that never succeeds exhausts a BOUNDED retry budget and gives up as timed-out — never an infinite loop (the INC-002 lesson)",
+    "command": "scripts/triage-run.sh --reset >/dev/null; printf '{\"specversion\":\"1.0\",\"id\":\"e\",\"correlation_id\":\"INC-999-x\",\"source\":\"ci\",\"type\":\"t\",\"time\":\"now\",\"subject\":\"orders-api\",\"data\":{\"incident\":\"INC-999\",\"env\":\"staging\"}}' > /tmp/m17chk-bad.json; scripts/triage-run.sh --event /tmp/m17chk-bad.json --max-retries 2 --field outcome; rm -f /tmp/m17chk-bad.json",
+    "expect": "timed-out"
+  },
+  {
+    "id": "m17-cannot-deploy",
+    "description": "READ-ONLY SAFETY: when the loop is asked to deploy, it routes the write through the action boundary and refuses — the automation has no path to production",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-run.sh --event fixtures/events/ci-incident.json --attempt-deploy --field outcome",
+    "expect": "refused-deploy"
+  },
+  {
+    "id": "m17-deploy-attempt-writes-nothing",
+    "description": "READ-ONLY SAFETY: a refused deploy leaves zero packets — a blocked write does not silently partial-commit evidence either",
+    "command": "scripts/triage-run.sh --reset >/dev/null; scripts/triage-run.sh --event fixtures/events/ci-incident.json --attempt-deploy >/dev/null 2>&1; ls agentops/triage-state/packet-*.json 2>/dev/null | wc -l | tr -d ' '",
+    "expect": "0"
+  },
+  {
+    "id": "m17-boundary-refuses-prod-delete",
+    "description": "READ-ONLY SAFETY: the boundary the loop delegates to refuses an irreversible production action (delete) — the last line proving triage cannot remediate",
+    "command": "scripts/action-boundary-check.sh --env production --action delete --field outcome",
+    "expect": "refuse-irreversible"
+  }
+]

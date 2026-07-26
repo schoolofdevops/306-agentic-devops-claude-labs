@@ -1,0 +1,146 @@
+[
+  {
+    "id": "m19-capstone-orchestrator-present",
+    "description": "PACKAGING: the capstone orchestrator ships with the starter and is executable — the 14-step workflow is a runnable artifact, not a slideshow",
+    "command": "[ -x scripts/capstone-triage.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-incident-ticket-present",
+    "description": "TRIAGE DISCIPLINE: the INC-006 compound incident ticket exists — you validate the incident before you touch anything",
+    "command": "[ -f incidents/INC-006-campaign-capstone.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-triage-lock-before-investigate",
+    "description": "TRIAGE DISCIPLINE (lock before investigate): acquiring the triage lock for INC-006 succeeds, and a concurrent second acquire for the same correlation id is rejected — exactly one loop owns the incident",
+    "command": "scripts/triage-lock.sh --release --cid m19-check >/dev/null 2>&1; scripts/triage-lock.sh --acquire --cid m19-check >/dev/null 2>&1 && ! scripts/triage-lock.sh --acquire --cid m19-check >/dev/null 2>&1 && { scripts/triage-lock.sh --release --cid m19-check >/dev/null 2>&1; echo locked; } || echo open",
+    "expect": "locked"
+  },
+  {
+    "id": "m19-phase1-triage-gate",
+    "description": "TRIAGE DISCIPLINE: Phase 1 gate passes — incident locked, evidence present, hypotheses formed, tracks delegated",
+    "command": "scripts/capstone-triage.sh reset >/dev/null 2>&1; scripts/capstone-triage.sh phase1 --field verdict 2>/dev/null",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-hypotheses-independent",
+    "description": "EVIDENCE QUALITY: the three capstone hypotheses each carry their OWN sources (>=1) — structured, multi-source evidence, not one guess echoed three times",
+    "command": "jq -e 'length==3 and (all(.[]; (.sources|length)>=1 and .derived_from==null))' fixtures/capstone/hypotheses.json >/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-hypotheses-corroborate",
+    "description": "EVIDENCE QUALITY: independent tracks converge on one root cause — real corroboration, verified by the synthesizer rather than asserted",
+    "command": "scripts/synthesize-hypotheses.sh fixtures/capstone/hypotheses.json 2>/dev/null | awk -F= '/^verdict=/{print $2}'",
+    "expect": "corroborated"
+  },
+  {
+    "id": "m19-consensus-theater-rejected",
+    "description": "EVIDENCE QUALITY (anti-consensus-theater): a packet that derives from a peer instead of its own evidence is rejected — agreement built on anchoring is worth nothing",
+    "command": "jq '[.[0], (.[1] + {derived_from:\"application-retry\", sources:[]})]' fixtures/capstone/hypotheses.json | scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo rejected || echo accepted",
+    "expect": "rejected"
+  },
+  {
+    "id": "m19-role-bundle-sre-readonly",
+    "description": "ROLE ADHERENCE: the sre-investigator is a reader — write authority is structurally absent, so the investigator can query but never edit",
+    "command": "scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; [ $? -eq 3 ] && echo readonly || echo writer",
+    "expect": "readonly"
+  },
+  {
+    "id": "m19-role-bundle-reviewer-readonly",
+    "description": "ROLE ADHERENCE: the change-reviewer inspects but never modifies — an independent reviewer with write authority is not independent",
+    "command": "scripts/role-authority-check.sh change-reviewer write >/dev/null 2>&1; [ $? -eq 3 ] && echo readonly || echo writer",
+    "expect": "readonly"
+  },
+  {
+    "id": "m19-role-bundle-iac-writer",
+    "description": "ROLE ADHERENCE: the iac-engineer IS a writer — authoring HCL is inside its role, so the boundary is scoped, not blanket-deny",
+    "command": "scripts/role-authority-check.sh iac-engineer write >/dev/null 2>&1 && echo writer || echo readonly",
+    "expect": "writer"
+  },
+  {
+    "id": "m19-seven-role-bundles",
+    "description": "ROLE ADHERENCE: all seven governed-team role bundles resolve in the authority matrix — the full team the capstone operates with",
+    "command": "for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst mlops-engineer change-reviewer; do grep -q \"^  $r:\" contracts/authority-matrix.yaml || { echo missing; exit 0; }; done; echo pass",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-phase2-investigation-gate",
+    "description": "ROLE ADHERENCE: Phase 2 gate passes — the parallel tracks investigate independently and reconcile on one root cause",
+    "command": "scripts/capstone-triage.sh phase2 --field verdict 2>/dev/null",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-dangerous-plan-blocked",
+    "description": "INFRASTRUCTURE JUDGMENT: the review pipeline BLOCKS the dangerous prod plan (open 0.0.0.0/0 security groups) — the agent proposes, the chain rejects",
+    "command": "scripts/change-pipeline.sh infra/fixtures/plan-wide-network.json --field verdict 2>/dev/null",
+    "expect": "block"
+  },
+  {
+    "id": "m19-security-objection-surfaced",
+    "description": "INFRASTRUCTURE JUDGMENT: the security stage independently flags the exposure — the block is a reasoned objection, not a coin flip",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-wide-network.json --field verdict 2>/dev/null",
+    "expect": "block"
+  },
+  {
+    "id": "m19-oversize-db-present",
+    "description": "INFRASTRUCTURE JUDGMENT: the oversize plan fixture carries the db.r6g.4xlarge the incident names — the FinOps-scale concern is real and inspectable",
+    "command": "jq -e '[.resource_changes[].change.after.instance_class?]|any(.==\"db.r6g.4xlarge\")' infra/fixtures/plan-oversize.json >/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-change-gate-denies-prod-apply",
+    "description": "REPAIR SAFETY: the PreToolUse change gate denies a direct `terraform apply` on production — repairs go proposal -> review -> gate, never direct apply",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform apply -auto-approve -chdir=infra/environments/production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo denied || echo allowed",
+    "expect": "denied"
+  },
+  {
+    "id": "m19-change-gate-allows-plan",
+    "description": "REPAIR SAFETY: the same gate ALLOWS a read-only `terraform plan` — the boundary blocks the irreversible action, not the investigation",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform plan -chdir=infra/environments/production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo allowed || echo denied",
+    "expect": "allowed"
+  },
+  {
+    "id": "m19-phase3-repair-review-gate",
+    "description": "REPAIR SAFETY: Phase 3 gate passes — dangerous plan blocked by the review chain and write authority scoped to writers only",
+    "command": "scripts/capstone-triage.sh phase3 --field verdict 2>/dev/null",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-canary-promotes-healthy",
+    "description": "REPAIR SAFETY (deploy & verify): a healthy canary is promoted — the safe release ships only after its SLOs verify",
+    "command": "scripts/canary-verify.sh fixtures/canary/canary-healthy.json --field verdict 2>/dev/null",
+    "expect": "promote"
+  },
+  {
+    "id": "m19-canary-rolls-back-unhealthy",
+    "description": "REPAIR SAFETY (deploy & verify): a degraded canary is rolled back — the verify step catches the bad deploy before it takes the fleet",
+    "command": "scripts/canary-verify.sh fixtures/canary/canary-unhealthy.json --field verdict 2>/dev/null",
+    "expect": "rollback"
+  },
+  {
+    "id": "m19-phase4-deploy-verify-gate",
+    "description": "REPAIR SAFETY: Phase 4 gate passes — healthy canary promoted, degraded canary rolled back",
+    "command": "scripts/capstone-triage.sh phase4 --field verdict 2>/dev/null",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-eval-score-capstone-pass",
+    "description": "POST-INCIDENT EVALUATION: the capstone run scores composite PASS on all five evaluation dimensions — a right outcome reached by right reasoning",
+    "command": "scripts/eval-score.sh fixtures/capstone/run-capstone.json --field verdict 2>/dev/null",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-regression-gate-guards-capstone",
+    "description": "POST-INCIDENT EVALUATION: the regression gate passes the capstone run and would fail the build on a degraded one — quality is code with a CI gate",
+    "command": "scripts/regression-gate.sh fixtures/capstone/run-capstone.json --field verdict 2>/dev/null",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-full-workflow-all-gates",
+    "description": "CAPSTONE END-TO-END: running all four phase gates in order completes the 14-step workflow with no gate skipped or failed",
+    "command": "scripts/capstone-triage.sh reset >/dev/null 2>&1; scripts/capstone-triage.sh all --field verdict 2>/dev/null | tail -1",
+    "expect": "pass"
+  }
+]

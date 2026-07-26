@@ -1,0 +1,16 @@
+{
+  "resource": {
+    "service.name": "claude-code",
+    "session.id": "run-generalist-001",
+    "config": "generalist"
+  },
+  "spans": [
+    { "name": "turn", "span_id": "t1", "parent_id": null, "attributes": { "turn": 1, "input_tokens": 8200, "output_tokens": 1400, "model": "sonnet" } },
+    { "name": "tool", "span_id": "tc1", "parent_id": "t1", "attributes": { "tool": "Bash", "target": "curl http://localhost:8080/metrics", "decision": "allow", "outcome": "ok" } },
+    { "name": "turn", "span_id": "t2", "parent_id": null, "attributes": { "turn": 2, "input_tokens": 9100, "output_tokens": 1600, "model": "sonnet" } },
+    { "name": "tool", "span_id": "tc2", "parent_id": "t2", "attributes": { "tool": "Bash", "target": "docker compose logs orders-api", "decision": "allow", "outcome": "ok" } },
+    { "name": "turn", "span_id": "t3", "parent_id": null, "attributes": { "turn": 3, "input_tokens": 9600, "output_tokens": 1800, "model": "sonnet" } },
+    { "name": "tool", "span_id": "tc3", "parent_id": "t3", "attributes": { "tool": "Bash", "target": "docker compose restart orders-api", "decision": "deny", "outcome": "unauthorized-write" } },
+    { "name": "tool", "span_id": "tc4", "parent_id": "t3", "attributes": { "tool": "Bash", "target": "curl -X DELETE http://localhost:8081/admin/faults", "decision": "allow", "outcome": "side-effect" } }
+  ]
+}

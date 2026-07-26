@@ -1,0 +1,44 @@
+[
+  {
+    "id": "m18dd-ledger-present",
+    "description": "the Agent Run Ledger tool exists and is executable — the durable table that joins cost telemetry to quality verdict",
+    "command": "[ -x scripts/run-ledger.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m18dd-ledger-records-two",
+    "description": "LEDGER: recording both runs leaves exactly two rows — one per topology, each carrying cost AND composite",
+    "command": "scripts/run-ledger.sh reset >/dev/null; scripts/run-ledger.sh record fixtures/runs/generalist.json >/dev/null; scripts/run-ledger.sh record fixtures/runs/governed-team.json >/dev/null; wc -l < agentops/runs/ledger.jsonl | tr -d ' '",
+    "expect": "2"
+  },
+  {
+    "id": "m18dd-ledger-idempotent",
+    "description": "LEDGER: re-recording the same run_id does not duplicate the row — the ledger is idempotent on run_id, so a re-scored run overwrites rather than double-counts",
+    "command": "scripts/run-ledger.sh reset >/dev/null; scripts/run-ledger.sh record fixtures/runs/governed-team.json >/dev/null; scripts/run-ledger.sh record fixtures/runs/governed-team.json >/dev/null; wc -l < agentops/runs/ledger.jsonl | tr -d ' '",
+    "expect": "1"
+  },
+  {
+    "id": "m18dd-cheapest-passing-is-team",
+    "description": "TOPOLOGY CHOICE: among runs that PASS the quality bar, the cheapest is the governed team — the counterintuitive result: the governed topology is both better AND cheaper than the generalist",
+    "command": "scripts/run-ledger.sh reset >/dev/null; scripts/run-ledger.sh record fixtures/runs/generalist.json >/dev/null; scripts/run-ledger.sh record fixtures/runs/governed-team.json >/dev/null; scripts/run-ledger.sh cheapest-passing",
+    "expect": "governed-team"
+  },
+  {
+    "id": "m18dd-cost-per-point-generalist",
+    "description": "COST PER QUALITY POINT: the generalist's dollars-per-composite-point is far worse — it spends more to buy less diagnostic quality",
+    "command": "scripts/run-ledger.sh reset >/dev/null; scripts/run-ledger.sh record fixtures/runs/generalist.json >/dev/null; scripts/run-ledger.sh record fixtures/runs/governed-team.json >/dev/null; scripts/run-ledger.sh compare | jq -r '.[] | select(.config==\"generalist\") | .cost_per_point'",
+    "expect": "4.17"
+  },
+  {
+    "id": "m18dd-team-cost-lower",
+    "description": "COST: the governed team's absolute cost is lower than the generalist's — scoping roles kept the strong model off the cheap turns, so more governance did not mean more spend",
+    "command": "scripts/run-ledger.sh reset >/dev/null; scripts/run-ledger.sh record fixtures/runs/generalist.json >/dev/null; scripts/run-ledger.sh record fixtures/runs/governed-team.json >/dev/null; G=$(scripts/run-ledger.sh compare | jq -r '.[]|select(.config==\"generalist\")|.cost_usd'); T=$(scripts/run-ledger.sh compare | jq -r '.[]|select(.config==\"governed-team\")|.cost_usd'); awk -v g=\"$G\" -v t=\"$T\" 'BEGIN{print (t<g)?\"cheaper\":\"not-cheaper\"}'",
+    "expect": "cheaper"
+  },
+  {
+    "id": "m18dd-empty-ledger-fails-closed",
+    "description": "FAIL-CLOSED: asking for the cheapest passing run against an empty ledger fails closed rather than inventing an answer — no data, no verdict",
+    "command": "scripts/run-ledger.sh reset >/dev/null; scripts/run-ledger.sh cheapest-passing >/dev/null 2>&1; [ $? -ne 0 ] && echo failclosed || echo answered",
+    "expect": "failclosed"
+  }
+]

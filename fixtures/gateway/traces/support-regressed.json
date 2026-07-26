@@ -1,0 +1,17 @@
+{
+  "trace_id": "req-support-9f2a",
+  "route": "support",
+  "model": "deep",
+  "provider": "provider-b/deep-1",
+  "total_ms": 8730,
+  "spans": [
+    { "name": "gateway.intake", "kind": "application", "ms": 12 },
+    { "name": "gateway.prompt_assembly", "kind": "application", "ms": 28 },
+    { "name": "gateway.queue_wait", "kind": "application", "ms": 190 },
+    { "name": "provider.time_to_first_token", "kind": "provider", "ms": 4180 },
+    { "name": "provider.generation", "kind": "provider", "ms": 4210 },
+    { "name": "gateway.response_shaping", "kind": "application", "ms": 110 }
+  ],
+  "tokens": { "input": 300, "output": 400 },
+  "note": "One real support request AFTER the route flip. Provider spans dominate: time-to-first-token alone (4180ms) is larger than the entire old-model request. Application spans total ~340ms and are unchanged from baseline."
+}

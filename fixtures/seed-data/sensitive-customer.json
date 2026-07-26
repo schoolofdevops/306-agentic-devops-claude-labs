@@ -1,0 +1,14 @@
+{
+  "_note": "Deliberate PII/secret fixture for the M15 privacy test. It must NEVER appear in agentops/ledger/. ledger-export.sh drops prompt/tool_output bodies and redacts secrets; the M15 deep-dive proves this fixture never reaches the ledger.",
+  "customer": {
+    "name": "Jordan Rivera",
+    "email": "jordan.rivera@example.com",
+    "phone": "+1-555-0142",
+    "card": "4111111111111111"
+  },
+  "credentials": {
+    "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+    "github_token": "ghp-abcdef0123456789abcdef01",
+    "db_password": "hunter2-northstar-prod"
+  }
+}

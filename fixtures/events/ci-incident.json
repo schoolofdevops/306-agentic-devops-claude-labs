@@ -1,0 +1,16 @@
+{
+  "specversion": "1.0",
+  "id": "evt-9f3a1c",
+  "correlation_id": "INC-002-2024-11-18T14:07:00Z",
+  "source": "ci/github-actions",
+  "type": "com.northstar.ci.incident.opened",
+  "time": "2024-11-18T14:07:11Z",
+  "subject": "orders-api",
+  "data": {
+    "incident": "INC-002",
+    "severity": "P2",
+    "signal": "upstream retry storm — orders-api p95 latency breached SLO after inventory-api errors",
+    "env": "staging",
+    "runbook": "runbooks/service-restart.md"
+  }
+}

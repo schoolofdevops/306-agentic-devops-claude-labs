@@ -1,0 +1,86 @@
+[
+  {
+    "id": "m8-change-gate-present-executable",
+    "description": "the change-gate PreToolUse hook exists and is executable",
+    "command": "[ -x scripts/hooks/change-gate.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-denies-prod-terraform-apply",
+    "description": "DENY: terraform apply against production is blocked (exit 2) and routed to GitOps",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform apply -auto-approve infra/environments/production\"}}' | scripts/hooks/change-gate.sh >/tmp/m8g.out 2>/dev/null; [ $? -eq 2 ] && grep -q '\"permissionDecision\":\"deny\"' /tmp/m8g.out && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-denies-protected-namespace-delete",
+    "description": "DENY: deleting the protected 'production' namespace is blocked (exit 2)",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl delete namespace production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-denies-wildcard-mutation",
+    "description": "DENY: a mutating kubectl targeting all namespaces (-A) is blocked (exit 2)",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl delete pods -A\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-denies-secret-output",
+    "description": "DENY: rendering a Secret's decoded value is blocked (exit 2) to keep credentials out of the transcript",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl get secret db-creds -o yaml\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-denies-docker-push",
+    "description": "DENY: docker push is blocked (exit 2) — images ship through CI, not an agent identity",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push northstar/orders-api:latest\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-allows-safe-commands",
+    "description": "ALLOW: terraform plan, dev apply, read-only kubectl -A, and a secret referenced by name all pass the gate (exit 0)",
+    "command": "for c in 'terraform plan -out=p.tfplan' 'terraform apply infra/environments/dev' 'kubectl get pods -A' 'kubectl get secret db-creds' 'curl -s http://localhost:8080/healthz'; do printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"%s\"}}' \"$c\" | scripts/hooks/change-gate.sh >/dev/null 2>&1 || { echo fail; exit 0; }; done; echo pass",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-fail-closed-on-empty-input",
+    "description": "FAIL-CLOSED: the gate blocks (nonzero exit) when it receives no input to evaluate",
+    "command": "printf '' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-hook-wired-in-settings",
+    "description": "the change-gate hook is wired as a PreToolUse Bash matcher in .claude/settings.json",
+    "command": "jq -e '.hooks.PreToolUse[] | select(.matcher==\"Bash\") | .hooks[] | select(.command | test(\"change-gate\"))' .claude/settings.json >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-bundles-declared-with-target-metadata",
+    "description": "the environment contract declares dev/staging/production bundles, each with kubeconfig, allow_apply, allow_delete",
+    "command": "python3 -c \"import yaml;b=(yaml.safe_load(open('contracts/environment-contract.yaml')) or {}).get('bundles',{});import sys;req={'kube_context','kubeconfig','allow_apply','allow_delete'};sys.exit(0 if all(n in b and req<=set(b[n]) for n in ('dev','staging','production')) else 1)\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-bundles-nonprod-are-readonly-identity",
+    "description": "staging and production bundles are pinned to the read-only identity and forbid apply/delete (agent cannot write them)",
+    "command": "python3 -c \"import yaml;b=yaml.safe_load(open('contracts/environment-contract.yaml'))['bundles'];import sys;sys.exit(0 if all((not b[e]['allow_apply']) and (not b[e]['allow_delete']) and 'readonly' in b[e]['kubeconfig'] for e in ('staging','production')) else 1)\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-env-check-blocks-mismatch",
+    "description": "FAIL-CLOSED: env-check blocks when the declared environment does not match the effective context (declared production, pointed at dev)",
+    "command": "KUBE_CONTEXT=dev-cluster scripts/env-check.sh production read >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-env-check-blocks-forbidden-action",
+    "description": "env-check blocks an apply to staging even when the context matches (allow_apply:false — GitOps only)",
+    "command": "KUBE_CONTEXT=staging-cluster scripts/env-check.sh staging apply >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-env-check-allows-match",
+    "description": "env-check permits a read in dev when the declared environment matches the effective context",
+    "command": "KUBE_CONTEXT=dev-cluster scripts/env-check.sh dev read >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

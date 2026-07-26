@@ -1,0 +1,10 @@
+{
+  "server": "northstar-observer",
+  "description": "Read-only observer for Northstar services. Query tools only; no write/mutate tools exist.",
+  "read_only": true,
+  "tools": [
+    { "name": "get_health", "kind": "read", "endpoint": "/healthz" },
+    { "name": "get_readiness", "kind": "read", "endpoint": "/readyz" },
+    { "name": "get_info", "kind": "read", "endpoint": "/api/v1/info" }
+  ]
+}

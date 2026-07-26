@@ -1,0 +1,74 @@
+[
+  {
+    "id": "m9-six-agent-files-present",
+    "description": "all six role agent files exist under .claude/agents/ with name + description frontmatter",
+    "command": "ok=true; for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst change-reviewer; do f=.claude/agents/$r.md; { [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -q '^description:' \"$f\"; } || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-role-bundle-declares-tools-and-model",
+    "description": "every role bundle declares both a tools list and a model (the two levers of a Role Bundle)",
+    "command": "ok=true; for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst change-reviewer; do f=.claude/agents/$r.md; { grep -q '^tools:' \"$f\" && grep -q '^model:' \"$f\"; } || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-read-only-roles-carry-no-write-tool",
+    "description": "the four read-only roles (sre, security-reviewer, finops, change-reviewer) declare NO write tool — the authority boundary is structural, not a promise",
+    "command": "ok=true; for r in sre-investigator security-reviewer finops-analyst change-reviewer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 3 ] || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-authoring-roles-carry-write-tool",
+    "description": "the two authoring roles (iac-engineer, platform-engineer) DO carry a write tool — write is inside their authority",
+    "command": "ok=true; for r in iac-engineer platform-engineer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 0 ] || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-role-authority-check-fail-closed",
+    "description": "FAIL-CLOSED: the authority check blocks (exit 1) on an unknown role rather than guessing capability",
+    "command": "scripts/role-authority-check.sh nonesuch write >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-model-effort-rationale-differs-by-role",
+    "description": "model selection is right-sized per role: finops runs haiku (cheap/mechanical), security-reviewer and change-reviewer run opus (most expensive miss)",
+    "command": "fin=$(awk -F': ' '/^model:/{print $2;exit}' .claude/agents/finops-analyst.md); sec=$(awk -F': ' '/^model:/{print $2;exit}' .claude/agents/security-reviewer.md); rev=$(awk -F': ' '/^model:/{print $2;exit}' .claude/agents/change-reviewer.md); [ \"$fin\" = haiku ] && [ \"$sec\" = opus ] && [ \"$rev\" = opus ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-every-role-declares-turn-budget",
+    "description": "every role file declares a turn budget — a runaway agent has no natural stopping point unless you give it one",
+    "command": "ok=true; for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst change-reviewer; do grep -qi 'turn budget' .claude/agents/$r.md || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-every-role-declares-handoff-schema",
+    "description": "every role file declares a structured handoff (a JSON packet), so downstream roles act on structure, not prose",
+    "command": "ok=true; for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst change-reviewer; do grep -qi 'from_role' .claude/agents/$r.md || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-evidence-validate-accepts-sourced-packet",
+    "description": "a well-formed evidence packet with sources and out_of_scope validates (exit 0)",
+    "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"change-reviewer\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"degraded\",\"checks\":{\"healthz\":true,\"readyz\":false},\"hypothesis\":\"readiness probe points at the wrong path\",\"confidence\":\"high\",\"sources\":[\"curl /readyz\",\"app/orders-api/src/health.py:25\"]},\"recommendations\":[\"fix the path\"],\"out_of_scope\":[\"did not check the db\"]}' | scripts/evidence-validate.sh >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-evidence-validate-rejects-unsourced-packet",
+    "description": "a confident hypothesis with NO sources is rejected as contamination (exit 4) — provenance is required",
+    "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"change-reviewer\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"down\",\"checks\":{},\"hypothesis\":\"it is definitely the db\",\"confidence\":\"high\",\"sources\":[]},\"recommendations\":[],\"out_of_scope\":[]}' | scripts/evidence-validate.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-evidence-validate-fail-closed",
+    "description": "FAIL-CLOSED: the evidence validator blocks (exit 1) on empty input rather than passing an empty packet",
+    "command": "printf '' | scripts/evidence-validate.sh >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-tool-grant-is-tighter-than-or-equal-to-matrix",
+    "description": "no role's agent file grants a write tool the authority-matrix does not: the tool grant is the tighter boundary (security-reviewer intentionally drops even the matrix's write path)",
+    "command": "ok=true; for r in sre-investigator security-reviewer finops-analyst change-reviewer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 3 ] || ok=false; done; for r in iac-engineer platform-engineer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 0 ] || ok=false; n=$(python3 -c \"import yaml;print(len(yaml.safe_load(open('contracts/authority-matrix.yaml'))['roles']['$r']['permissions']['write']))\"); [ \"$n\" -gt 0 ] || ok=false; done; $ok && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

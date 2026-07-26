@@ -62,6 +62,18 @@ roles:
       - "Must flag instance changes > 2x current size"
       - "Must compare against budget thresholds"
 
+  mlops-engineer:
+    description: "Reviews the LLM gateway — routing, providers, prompts, traces — as a reviewed artifact; prices route changes and runs the prompt regression gate (M16)"
+    permissions:
+      read: ["platform/gateway/", "fixtures/gateway/", "evals/promptfoo/"]
+      execute: ["scripts/gateway-diff.sh", "scripts/llm-dials.sh", "scripts/promptfoo-gate.sh"]
+      write: []
+      approve: []
+    constraints:
+      - "Cannot edit routing.yaml or apply a route change"
+      - "Must split provider vs application latency before assigning blame"
+      - "Route changes go through the change gate and a change-reviewer"
+
   change-reviewer:
     description: "Reviews and approves changes before production deployment"
     permissions:
@@ -73,3 +85,28 @@ roles:
       - "Cannot make changes directly"
       - "Must verify blast radius before approving"
       - "Must check authority-matrix compliance"
+
+# ---------------------------------------------------------------------------
+# Role bundles (M9) — the machine-checkable side of each role subagent.
+#
+# The `roles:` block above is the human-readable authority contract. This block
+# is the ENFORCEMENT metadata each `.claude/agents/<name>.md` file encodes:
+# the model + effort right-sized for the role, whether the role is a writer or
+# read-only, its turn budget before a checkpoint, and whether it works in an
+# isolated git worktree. scripts/role-authority-check.sh reads the actual agent
+# files and asserts the `writer` fact holds structurally (no write tool => cannot
+# write). This table is the declared intent those files must match.
+#
+# The invariant: only iac-engineer and platform-engineer are writers, and both
+# are Git-only (they propose, they do not apply). Every other role is read-only
+# by tool bundle — the SRE may query but not edit, FinOps may read plans but not
+# apply, the reviewer may inspect but not modify the candidate.
+# ---------------------------------------------------------------------------
+role_bundles:
+  sre-investigator: { model: sonnet, effort: medium, writer: false, turn_budget: 8, worktree: false }
+  iac-engineer: { model: sonnet, effort: medium, writer: true, turn_budget: 12, worktree: true }
+  platform-engineer: { model: sonnet, effort: medium, writer: true, turn_budget: 12, worktree: true }
+  security-reviewer: { model: opus, effort: high, writer: false, turn_budget: 10, worktree: false }
+  finops-analyst: { model: haiku, effort: low, writer: false, turn_budget: 6, worktree: false }
+  mlops-engineer: { model: sonnet, effort: medium, writer: false, turn_budget: 8, worktree: false }
+  change-reviewer: { model: opus, effort: high, writer: false, turn_budget: 10, worktree: true }

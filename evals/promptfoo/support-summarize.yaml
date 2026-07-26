@@ -1,0 +1,59 @@
+# Promptfoo-style regression suite for the support-summarize prompt.
+#
+# This is the QUALITY dial made into a CI gate. Each case pins a behavior the
+# prompt must hold: include the order ID, never invent a refund, greet by name.
+# promptfoo-gate.sh runs these assertions against a recorded model output
+# fixture (deterministic — no live provider needed to grade) and fails closed
+# if any REQUIRED assertion regresses. In real CI you would point this at a live
+# provider; the shape of the contract is identical.
+#
+# assert types (deterministic subset the gate implements):
+#   contains        — output must contain the literal string (case-insensitive)
+#   not-contains    — output must NOT contain the literal string
+#   max-words       — output word count must be <= n
+
+prompt: platform/gateway/prompts/support-summarize.txt
+
+# The recorded outputs the gate grades against. In live CI this block is absent
+# and the provider is called; here we grade a fixture so the suite is portable.
+recorded_outputs: fixtures/gateway/support-outputs.json
+
+tests:
+  - name: order-ticket-keeps-id
+    vars:
+      ticket: "Order NS-48213 arrived damaged, box was crushed."
+    assert:
+      - type: contains
+        value: "NS-48213"
+        required: true
+      - type: not-contains
+        value: "refund"
+        required: true
+      - type: max-words
+        value: 90
+        required: true
+
+  - name: greets-by-name
+    vars:
+      ticket: "From Priya Nair: my tracking link is broken."
+    assert:
+      - type: contains
+        value: "Priya"
+        required: true
+      - type: max-words
+        value: 90
+        required: true
+
+  - name: no-invented-delivery-date
+    vars:
+      ticket: "When will order NS-90017 ship? No date was given."
+    assert:
+      - type: contains
+        value: "NS-90017"
+        required: true
+      - type: contains
+        value: "follow up"
+        required: false
+      - type: not-contains
+        value: "guaranteed"
+        required: true

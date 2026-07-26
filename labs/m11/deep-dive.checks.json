@@ -1,0 +1,68 @@
+[
+  {
+    "id": "m11dd-plan-valid-syntax",
+    "description": "CHEAP PROMPT: the generated plan is structurally a valid terraform plan JSON — it passes syntax, which is exactly why syntax is not the gate",
+    "command": "jq -e '.resource_changes | type == \"array\"' infra/fixtures/plan-cheap-prompt.json >/dev/null 2>&1 && echo valid || echo invalid",
+    "expect": "valid"
+  },
+  {
+    "id": "m11dd-defect1-stateful-replace",
+    "description": "DEFECT 1 (data loss): the IaC/plan analyzer catches that the plan REPLACES the RDS instance — the database is destroyed and recreated",
+    "command": "scripts/plan-analyze.sh infra/fixtures/plan-cheap-prompt.json --field stateful_replaced",
+    "expect": "module.database.aws_db_instance.main"
+  },
+  {
+    "id": "m11dd-defect1-blocks",
+    "description": "DEFECT 1: the stateful replacement alone is enough to block the plan on structural analysis",
+    "command": "scripts/plan-analyze.sh infra/fixtures/plan-cheap-prompt.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11dd-defect2-oversize",
+    "description": "DEFECT 2 (oversize): the plan sizes the database at db.r6g.4xlarge — the FinOps-relevant field the security scan never looks at",
+    "command": "jq -r '.resource_changes[] | select(.address==\"module.database.aws_db_instance.main\") | .change.after.instance_class' infra/fixtures/plan-cheap-prompt.json",
+    "expect": "db.r6g.4xlarge"
+  },
+  {
+    "id": "m11dd-defect2-cost-blocks",
+    "description": "DEFECT 2: priced against the good baseline, the oversize database blows past the 2x threshold — FinOps blocks",
+    "command": "scripts/cost-compare.sh infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11dd-defect3-wide-network",
+    "description": "DEFECT 3 (exposure): the security scan catches the 0.0.0.0/0 rule opening Postgres (5432) to the internet — the defect neither the IaC nor the FinOps stage would flag",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-cheap-prompt.json --field sensitive_exposed",
+    "expect": "module.networking.aws_security_group_rule.db_public_debug:5432"
+  },
+  {
+    "id": "m11dd-defect3-security-blocks",
+    "description": "DEFECT 3: the sensitive exposure blocks the plan on security review",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-cheap-prompt.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11dd-chain-blocks-all-three",
+    "description": "THE POINT: run the full specialist chain over the one cheap-prompt plan and it BLOCKS — no single stage catches all three, the chain does",
+    "command": "scripts/change-pipeline.sh infra/fixtures/plan-cheap-prompt.json infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field verdict",
+    "expect": "block"
+  },
+  {
+    "id": "m11dd-chain-blocker-count",
+    "description": "COVERAGE: the chain surfaces FOUR independent blockers (IaC replace, security exposure, cost, rollback) from the single plan — each stage earned its place",
+    "command": "scripts/change-pipeline.sh infra/fixtures/plan-cheap-prompt.json infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field blockers | wc -l | tr -d ' '",
+    "expect": "4"
+  },
+  {
+    "id": "m11dd-rollback-irreversible",
+    "description": "ROLLBACK: because the plan destroys the datastore, the change reviewer judges it irreversible — approval requires a restore-from-backup plan",
+    "command": "scripts/rollback-review.sh infra/fixtures/plan-cheap-prompt.json --field reversible",
+    "expect": "false"
+  },
+  {
+    "id": "m11dd-single-stage-insufficient",
+    "description": "WHY A CHAIN: the security scan alone, run on the STATEFUL-REPLACE-only plan, sees nothing wrong — a single reviewer misses defects outside its lane",
+    "command": "scripts/tf-security-scan.sh infra/fixtures/plan-stateful-replace.json --field verdict",
+    "expect": "clean"
+  }
+]

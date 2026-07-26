@@ -1,0 +1,43 @@
+# adoption-ladder.yaml — how the operating layer is rolled out to a team.
+#
+# You do not hand an agent the keys on day one. Trust is earned one rung at a
+# time: each stage widens what the agent may DO, and each stage carries an
+# explicit trust gate (what must be true to enter), a rollback trigger (what
+# drops you back a rung), and graduation criteria (what earns the next rung).
+#
+# The invariant across all four stages: authority only widens after the evidence
+# at the current rung says it is safe to widen it.
+
+ladder:
+  - stage: 1
+    name: read-only-pilot
+    agent_may: "read, diagnose, and SUGGEST — no writes of any kind"
+    trust_gate: "the seven role agents load, the change gate is wired, the observer MCP is read-only"
+    rollback_trigger: "any write reaches a target system (side_effects > 0 in the run ledger)"
+    graduation: "10 incidents diagnosed with eval-score composite >= 0.80 and zero unauthorized_attempts"
+
+  - stage: 2
+    name: pr-proposals
+    agent_may: "open pull requests with proposed changes — a human reviews and merges"
+    trust_gate: "stage 1 graduated; change-pipeline blocks every dangerous plan in the regression suite"
+    rollback_trigger: "a merged agent PR causes a rollback, OR a proposal bypasses the review chain"
+    graduation: "20 PRs merged with no post-merge rollback and no authority-boundary crossing"
+
+  - stage: 3
+    name: approval-gated-changes
+    agent_may: "APPLY a change after an explicit human approval on the specific change"
+    trust_gate: "stage 2 graduated; the change gate denies production apply and protected-namespace deletes in CI"
+    rollback_trigger: "an approved change breaches an SLO on canary, OR the gate is disabled to push a change through"
+    graduation: "30 approval-gated changes applied, canary caught every regression, zero gate bypasses"
+
+  - stage: 4
+    name: bounded-closed-loop
+    agent_may: "apply within named guardrails without per-change approval — a human audits post-hoc"
+    trust_gate: "stage 3 graduated; every guardrail is a fail-closed check the agent cannot disable"
+    rollback_trigger: "any action outside the guardrail set, OR the post-hoc audit finds an unreviewed side effect"
+    graduation: "steady state — this is the top rung; widening a guardrail is itself a stage-3 approval-gated change"
+
+# The gates that enforce movement between rungs — every promotion is evidence-backed.
+promotion_gates:
+  quality:   "scripts/regression-gate.sh <run.json>   # composite must clear the threshold"
+  authority: "scripts/role-authority-check.sh <role> write   # readers must stay readers"

@@ -1,0 +1,33 @@
+# routing-baseline.yaml — the LAST-KNOWN-GOOD gateway routing (v2).
+#
+# This is the committed state support traffic ran on before the regression.
+# gateway-diff.sh compares the current platform/gateway/routing.yaml against
+# this baseline to show exactly what a route change did to cost and latency.
+# In v2 the support class ran on 'fast'. The regression edits the live file;
+# this fixture is the reference it is measured against.
+
+version: 2
+
+defaults:
+  fallback: fast
+  timeout_ms: 8000
+
+routes:
+  support:
+    model: fast
+    max_tokens: 512
+    rate_limit:
+      rpm: 600
+      tpm: 300000
+  incident:
+    model: deep
+    max_tokens: 4096
+    rate_limit:
+      rpm: 30
+      tpm: 120000
+  batch:
+    model: fast
+    max_tokens: 2048
+    rate_limit:
+      rpm: 120
+      tpm: 400000

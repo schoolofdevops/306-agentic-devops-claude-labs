@@ -28,3 +28,12 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 .claude/worktrees/
+.claude/settings.local.json
+
+# LLM gateway runtime state (M16) — written by promptfoo-gate.sh
+agentops/gateway/
+
+# Capstone (M19) runtime state — written by capstone-triage.sh
+agentops/capstone/
+agentops/triage-state/
+agentops/runs/

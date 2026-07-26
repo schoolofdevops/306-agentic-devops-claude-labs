@@ -1,0 +1,12 @@
+{
+  "good": {
+    "order-ticket-keeps-id": "Hi there, sorry your order arrived damaged. We have logged the issue for order NS-48213 and a support specialist will follow up to arrange a replacement. No action is needed from you right now.",
+    "greets-by-name": "Hi Priya, thanks for flagging the broken tracking link. We are regenerating it now and a specialist will follow up with a working link shortly.",
+    "no-invented-delivery-date": "Hi there, thanks for asking about order NS-90017. A shipping date has not been confirmed yet, so a support specialist will follow up as soon as it is scheduled."
+  },
+  "regressed": {
+    "order-ticket-keeps-id": "Hi there, so sorry to hear that! We will send you a full refund right away and a replacement is on its way.",
+    "greets-by-name": "Hi there, thanks for reaching out about your tracking link. We are looking into it.",
+    "no-invented-delivery-date": "Hi there, your order will ship within 2 business days, guaranteed."
+  }
+}

@@ -1,0 +1,38 @@
+# Northstar LLM Gateway — provider + pricing map.
+#
+# Resolves the model tier ALIASES used in routing.yaml to concrete providers,
+# and carries the two numbers the four-dials view needs: price and the
+# provider's own latency profile. Prices are illustrative blended $/1M tokens
+# (in+out averaged) — the RATIO between tiers is the lesson, not the absolute
+# figure. The p50/p95 latency is the PROVIDER's server-side time-to-complete
+# for a typical support-sized request; it is NOT the same number the gateway
+# measures end-to-end (that includes queueing, retries, and network — see the
+# traces). Keeping the two apart is the whole diagnostic point of the module.
+#
+# tokens_per_request is the blended in+out estimate for one support request,
+# used by llm-dials.sh to turn a price into a per-request and a monthly cost.
+
+models:
+  fast:
+    provider: "provider-a/fast-1"
+    price_per_1m_usd: 0.80
+    latency_ms: { p50: 400, p95: 900 }
+    tpm_limit: 500000
+  mid:
+    provider: "provider-a/mid-1"
+    price_per_1m_usd: 3.00
+    latency_ms: { p50: 1200, p95: 2600 }
+    tpm_limit: 300000
+  deep:
+    provider: "provider-b/deep-1"
+    price_per_1m_usd: 15.00
+    latency_ms: { p50: 4200, p95: 9500 }
+    tpm_limit: 120000
+
+# Support workload sizing — one class, steady state. The incident changes the
+# ROUTE, not the volume: the same 900k requests/day still arrive, they just land
+# on a different (costlier, slower) model.
+workload:
+  support:
+    requests_per_day: 900000
+    tokens_per_request: 700

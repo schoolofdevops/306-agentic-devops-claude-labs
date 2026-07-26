@@ -1,0 +1,53 @@
+# Northstar LLM Gateway — routing configuration (reviewed artifact).
+#
+# The gateway sits between Northstar's LLM-powered features and the model
+# providers. This file is the source of truth for WHICH model serves WHICH
+# traffic class, plus the fallback chain and the per-class rate limits.
+#
+# It is version-controlled and reviewed like any other change. A one-line edit
+# here can move the whole support workload onto a slower, costlier model — so
+# the review gate (gateway-diff.sh) treats a route change as a cost + latency
+# decision, not a config typo.
+#
+# Traffic classes:
+#   support   — customer-support summarization + reply drafting. HIGH VOLUME,
+#               latency-sensitive (a human is waiting), quality bar is "good
+#               enough to draft". This is the workload the incident is about.
+#   incident  — the SRE/agent investigation path. LOW volume, quality-critical,
+#               latency-tolerant (a few extra seconds is fine mid-incident).
+#   batch     — overnight report generation. No human waiting; cost is the only
+#               dial that matters.
+#
+# Model tiers (provider-agnostic aliases; the provider map resolves them):
+#   fast   — cheap, low-latency, "good enough for routine drafting"
+#   deep   — expensive, high-latency, deepest judgment
+#   mid    — balanced middle tier
+
+version: 3
+
+defaults:
+  fallback: fast          # if a route's primary provider errors, drop to fast
+  timeout_ms: 8000        # gateway-side ceiling per request
+
+routes:
+    # DELIBERATE BUG (M16): support was 'fast' in v2. This route flip sends the
+    # entire high-volume support workload to 'deep' — slower and costlier. The
+    # incident is diagnosing and reverting this line through the gates.
+  support:
+    model: deep           # <- REGRESSED. Baseline (v2) had 'fast'.
+    max_tokens: 512
+    rate_limit:
+      rpm: 600            # requests/min for the whole support class
+      tpm: 300000         # tokens/min
+  incident:
+    model: deep
+    max_tokens: 4096
+    rate_limit:
+      rpm: 30
+      tpm: 120000
+  batch:
+    model: fast
+    max_tokens: 2048
+    rate_limit:
+      rpm: 120
+      tpm: 400000

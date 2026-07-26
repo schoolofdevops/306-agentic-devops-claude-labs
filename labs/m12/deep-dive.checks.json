@@ -1,0 +1,44 @@
+[
+  {
+    "id": "m12dd-app-serves-healthz-not-health",
+    "description": "APP HEALTH: the orders-api process serves /healthz (and /readyz) but has NO /health route — so a probe pointed at /health gets a 404, not because the app is down",
+    "command": "grep -Eq '@router.get\\(\"/healthz\"\\)' app/orders-api/src/health.py && ! grep -Eq '@router.get\\(\"/health\"\\)' app/orders-api/src/health.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12dd-readiness-probe-points-at-wrong-path",
+    "description": "PROBE CONFIG: the RENDERED readiness probe points at /health — the path the app does not serve — so the pod will never report Ready",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /health$' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12dd-liveness-probe-is-correct",
+    "description": "PROBE CONFIG: the liveness probe correctly points at /healthz — this is the misleading part, the container is NOT killed, it just stays perpetually unready",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -A2 livenessProbe | grep -Eq 'path: /healthz$' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12dd-rollout-strategy-guarantees-outage",
+    "description": "ROLLOUT STATE: maxUnavailable is rendered as 100% — a rolling update may take every old pod down before a new one is Ready, turning an unready rollout into a full outage",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -Eq 'maxUnavailable: 100%' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12dd-root-cause-is-git-fixable",
+    "description": "THE FIX: the defect lives in Helm values (desired state in Git), not in the app or the cluster — so the repair is a one-line values change routed through the reconciler, not a kubectl edit",
+    "command": "grep -Eq 'path: /health\\b' platform/helm/orders-api/values.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12dd-fix-renders-ready-probe",
+    "description": "THE FIX VERIFIED: overriding the readiness path to /healthz renders a probe that matches the app's real endpoint (proven with helm template and a values override, no cluster touched)",
+    "command": "f=$(mktemp); printf 'readinessProbe:\\n  httpGet:\\n    path: /healthz\\n    port: http\\n  initialDelaySeconds: 5\\n  periodSeconds: 10\\n' > \"$f\"; helm template orders-api platform/helm/orders-api -f \"$f\" 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /healthz$' && echo pass || echo fail; rm -f \"$f\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m12dd-repair-goes-through-gitops-not-kubectl",
+    "description": "GOVERNANCE: the repair path is the golden path — a direct kubectl edit of the live deployment from an agent identity is exactly the wrong-target class the gate blocks; the fix is proposed in Git",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl edit deployment orders-api -A\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

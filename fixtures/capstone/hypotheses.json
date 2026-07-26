@@ -1,0 +1,38 @@
+[
+  {
+    "dimension": "application-retry",
+    "root_cause": "retry-amplification",
+    "status": "supported",
+    "confidence": "high",
+    "sources": [
+      "curl http://localhost:8080/metrics | grep upstream_retries",
+      "docker compose exec orders-api env | grep RETRY_COUNT"
+    ],
+    "derived_from": null,
+    "missing": []
+  },
+  {
+    "dimension": "platform-resource",
+    "root_cause": "retry-amplification",
+    "status": "supported",
+    "confidence": "medium",
+    "sources": [
+      "kubectl get deploy orders-api -n northstar -o jsonpath='{.spec.template.spec.containers[0].resources}'",
+      "kubectl get hpa -n northstar"
+    ],
+    "derived_from": null,
+    "missing": []
+  },
+  {
+    "dimension": "recent-change",
+    "root_cause": "retry-amplification",
+    "status": "supported",
+    "confidence": "medium",
+    "sources": [
+      "incidents/INC-006-campaign-capstone.md",
+      "git log --oneline -10 -- orders-api/"
+    ],
+    "derived_from": null,
+    "missing": []
+  }
+]

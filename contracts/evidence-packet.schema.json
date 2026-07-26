@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evidence Packet",
+  "description": "The structured handoff a read-only investigator role produces. Nothing downstream acts on prose — only on this packet. Every claim must trace to a source.",
+  "type": "object",
+  "required": ["from_role", "to_role", "evidence", "recommendations", "out_of_scope"],
+  "additionalProperties": false,
+  "properties": {
+    "from_role": { "type": "string" },
+    "to_role": { "type": "string" },
+    "evidence": {
+      "type": "object",
+      "required": ["service", "status", "checks", "hypothesis", "confidence", "sources"],
+      "additionalProperties": false,
+      "properties": {
+        "service": { "type": "string" },
+        "status": { "type": "string", "enum": ["healthy", "degraded", "down"] },
+        "checks": { "type": "object" },
+        "hypothesis": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "sources": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    },
+    "recommendations": { "type": "array", "items": { "type": "string" } },
+    "out_of_scope": { "type": "array", "items": { "type": "string" } }
+  }
+}

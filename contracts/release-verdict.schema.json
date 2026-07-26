@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "release-verdict",
+  "description": "Structured output contract for a hermetic Claude release analysis (claude -p --bare --output-format json --json-schema this-file). The agent ANALYZES and reports; it does not mutate. The pipeline gates on `verdict`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "blockers", "evidence"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "block"],
+      "description": "approve only when every gate clears; block on the strongest objection (fail-closed)."
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "One human-readable line per failed gate. Empty iff verdict is approve."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readiness_probe_path", "app_routes", "max_unavailable"],
+      "properties": {
+        "readiness_probe_path": {
+          "type": "string",
+          "description": "The readiness probe path as RENDERED from Helm values — a claim about the app."
+        },
+        "app_routes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The routes the app actually serves — the executable ground truth the probe path is checked against."
+        },
+        "max_unavailable": {
+          "type": "string",
+          "description": "Rendered rollout maxUnavailable — 100% means no serving floor."
+        }
+      }
+    }
+  }
+}

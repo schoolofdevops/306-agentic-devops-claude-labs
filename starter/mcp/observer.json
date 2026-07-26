@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ops-observer": {
+      "command": "node",
+      "args": ["./mcp/observer/index.mjs"],
+      "env": {
+        "OBSERVER_MODE": "read-only"
+      }
+    }
+  }
+}

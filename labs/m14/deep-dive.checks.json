@@ -1,0 +1,68 @@
+[
+  {
+    "id": "m14dd-symptom-latency-slo",
+    "description": "SYMPTOM: the latency SLO is 500ms (p95) — the retry storm's 28s p95 is a breach an order of magnitude over budget, measured against a named objective",
+    "command": "grep -A1 'alert:[[:space:]]*SLOLatencyBreach' observability/prometheus/rules/slo-orders.yml | grep -Eq '0\\.5' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-upstream-timeout-alert",
+    "description": "SYMPTOM: the UpstreamTimeoutSpike alert keys on orders_api_upstream_errors_total{type=\"timeout\"} — the firing alert points at upstream timeouts, the storm's fingerprint",
+    "command": "grep -A1 'alert:[[:space:]]*UpstreamTimeoutSpike' observability/prometheus/rules/alerts.yml | grep -Eq 'orders_api_upstream_errors_total\\{type=\"timeout\"\\}' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-resource-hypothesis-falsified",
+    "description": "FALSIFY RESOURCE HYPOTHESIS: the orders-api Helm values contain NO resources block — 'raise CPU/memory limits' targets a field that does not exist, so the resource hypothesis cannot be the fix",
+    "command": "! grep -Eq '^[[:space:]]*resources:' platform/helm/orders-api/values.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-causal-change-is-retry",
+    "description": "CAUSAL CHANGE: the retry-storm fixture is the change — RETRY_COUNT 3->10 and TIMEOUT_MS 5000->30000 — provable by diffing the fault fixture against the normal one",
+    "command": "grep -Eq 'RETRY_COUNT=10' fixtures/fault-configs/retry-storm.env && grep -Eq 'RETRY_COUNT=3' fixtures/fault-configs/normal.env && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-amplification-mechanism",
+    "description": "MECHANISM: the client retries retry_count+1 attempts, each bounded by timeout_ms — 11 attempts x 30s is the amplifier that turns upstream latency into a self-inflicted storm, readable in source",
+    "command": "grep -Eq 'range\\(self\\.settings\\.retry_count \\+ 1\\)' app/orders-api/src/inventory_client.py && grep -q 'timeout=self.settings.timeout_ms' app/orders-api/src/inventory_client.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-no-backoff-cap",
+    "description": "MECHANISM: backoff grows as 2**attempt with no cap — with 10 retries the late attempts wait minutes, so a single request can occupy a worker far longer than the SLO, readable in source",
+    "command": "grep -Fq '* (2 ** attempt)' app/orders-api/src/inventory_client.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-hypotheses-independent-corroboration",
+    "description": "PARALLEL FALSIFICATION: three independent dimensions (retry / resource / recent-change) that reach retry-config from their OWN evidence corroborate; the resource dimension REFUTES its own hypothesis and does not distort the verdict",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"inventory_client.py:20\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"medium\",\"sources\":[\"no resources block in values.yaml\"],\"derived_from\":null},{\"dimension\":\"recent-change\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"retry-storm.env diff\"],\"derived_from\":null}]' | bash scripts/synthesize-hypotheses.sh 2>/dev/null | grep -Eq 'root_cause=retry-config' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-need-more-evidence-loop",
+    "description": "DISCIPLINE: when the resource dimension is inconclusive (saturation not yet checked), synthesis withholds a verdict (need-more-evidence) instead of declaring a winner on partial data",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"inventory_client.py:20\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":null,\"status\":\"inconclusive\",\"confidence\":\"low\",\"sources\":[\"kubectl top pending\"],\"derived_from\":null,\"missing\":[\"node saturation\"]}]' | bash scripts/synthesize-hypotheses.sh 2>/dev/null | grep -Eq 'verdict=need-more-evidence' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-repair-is-values-change",
+    "description": "CONTAINED REPAIR: the durable fix is a values change (lower RETRY_COUNT, add a timeout floor) in desired state — the env.RETRY_COUNT knob lives in Helm values, the field the GitOps proposal edits",
+    "command": "grep -Eq 'RETRY_COUNT:' platform/helm/orders-api/values.yaml && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-repair-through-gitops",
+    "description": "GOVERNANCE: gitops-propose.sh is the change path and contains no cluster-write command — the incident fix is proposed in Git and synced by the reconciler, never applied by the investigator",
+    "command": "[ -x scripts/gitops-propose.sh ] && ! grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch|rollout)|helm[[:space:]]+(upgrade|install)|docker[[:space:]]+compose[[:space:]]+(up|restart))' scripts/gitops-propose.sh && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m14dd-investigator-cannot-apply",
+    "description": "SEPARATION OF DUTIES: the sre-investigator that diagnosed the storm has no write/apply authority — its authority-matrix row grants read + execute:[preflight,grade] only, so the diagnosis and the repair are different hands",
+    "command": "grep -A6 '^  sre-investigator:' contracts/authority-matrix.yaml | grep -Eq 'write:[[:space:]]*\\[\\]' && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

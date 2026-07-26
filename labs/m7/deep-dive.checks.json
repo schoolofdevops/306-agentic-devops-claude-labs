@@ -1,0 +1,20 @@
+[
+  {
+    "id": "m7-dd-multiple-write-shapes-rejected",
+    "description": "DEEP DIVE: every write-shaped tools/call (scale, delete, restart) is rejected as 'unknown tool' — the write dies at the protocol layer (nonexistence), never reaching a permission check",
+    "command": "out=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"scale\",\"arguments\":{}}}' '{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"delete\",\"arguments\":{}}}' '{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"restart\",\"arguments\":{}}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id>=11) | .error.message' | grep -c 'unknown tool'); [ \"$out\" = \"3\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-dd-tools-list-is-complete-surface",
+    "description": "DEEP DIVE: tools/list returns exactly the three read tools and nothing write-shaped — that list is the agent's entire callable surface",
+    "command": "names=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==2) | .result.tools[].name'); echo \"$names\" | grep -Eq '^(scale|delete|restart|apply|write|exec)$' && echo fail || { [ \"$(echo \"$names\" | grep -c .)\" = \"3\" ] && echo pass || echo fail; }",
+    "expect": "pass"
+  },
+  {
+    "id": "m7-dd-read-call-returns-typed-not-forbidden",
+    "description": "DEEP DIVE: a read call (get_info) succeeds and returns typed JSON — contrasting the 'unknown tool' nonexistence errors, reads are present and structured",
+    "command": "resp=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"get_info\",\"arguments\":{\"service\":\"orders-api\"}}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==10) | .result.content[0].text'); echo \"$resp\" | jq -e '.endpoint == \"/api/v1/info\"' >/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  }
+]
