@@ -35,7 +35,7 @@ usage() {
   echo "  $0 m1     # Grade Module 1 (readiness fix)"
   echo "  $0 m2     # Grade Module 2 (permission boundary & sandbox)"
   echo ""
-  echo "Supported modules: m1, m2"
+  echo "Supported modules: m1-m19 (m8-m19 also support a <module>-deep-dive variant)"
   exit 0
 }
 
@@ -133,6 +133,62 @@ case "$MODULE" in
       mv "$LOCAL.gradebak" "$LOCAL"
     else
       rm -f "$LOCAL"
+    fi
+    ;;
+
+  m3)
+    echo "Checking: Context pack"
+    echo ""
+
+    # Check 1: root CLAUDE.md present and budgeted (< 150 lines)
+    if [[ -f "$REPO_ROOT/CLAUDE.md" ]] && [[ "$(wc -l < "$REPO_ROOT/CLAUDE.md")" -lt 150 ]]; then
+      check "root CLAUDE.md present and budgeted (< 150 lines)" "true"
+    else
+      check "root CLAUDE.md present and budgeted (< 150 lines)" "false"
+    fi
+
+    # Check 2: app/orders-api/CLAUDE.md scopes Python rules (pytest, /healthz)
+    if [[ -f "$REPO_ROOT/app/orders-api/CLAUDE.md" ]] \
+      && grep -q 'pytest' "$REPO_ROOT/app/orders-api/CLAUDE.md" \
+      && grep -q '/healthz' "$REPO_ROOT/app/orders-api/CLAUDE.md"; then
+      check "app/orders-api/CLAUDE.md scopes Python rules (pytest, /healthz)" "true"
+    else
+      check "app/orders-api/CLAUDE.md scopes Python rules (pytest, /healthz)" "false"
+    fi
+
+    # Check 3: app/inventory-api/CLAUDE.md scopes Go rules (go test)
+    if [[ -f "$REPO_ROOT/app/inventory-api/CLAUDE.md" ]] \
+      && grep -q 'go test' "$REPO_ROOT/app/inventory-api/CLAUDE.md"; then
+      check "app/inventory-api/CLAUDE.md scopes Go rules (go test)" "true"
+    else
+      check "app/inventory-api/CLAUDE.md scopes Go rules (go test)" "false"
+    fi
+
+    # Check 4: infra/CLAUDE.md forbids terraform apply/destroy
+    if [[ -f "$REPO_ROOT/infra/CLAUDE.md" ]] \
+      && grep -qi 'terraform apply' "$REPO_ROOT/infra/CLAUDE.md" \
+      && grep -qi 'terraform destroy' "$REPO_ROOT/infra/CLAUDE.md"; then
+      check "infra/CLAUDE.md forbids terraform apply/destroy" "true"
+    else
+      check "infra/CLAUDE.md forbids terraform apply/destroy" "false"
+    fi
+
+    # Check 5: platform/CLAUDE.md forbids kubectl delete namespace
+    if [[ -f "$REPO_ROOT/platform/CLAUDE.md" ]] \
+      && grep -qi 'delete namespace' "$REPO_ROOT/platform/CLAUDE.md"; then
+      check "platform/CLAUDE.md forbids kubectl delete namespace" "true"
+    else
+      check "platform/CLAUDE.md forbids kubectl delete namespace" "false"
+    fi
+
+    # Check 6: contracts/evidence-packet.yaml defines source + collected_at + trust
+    if [[ -f "$REPO_ROOT/contracts/evidence-packet.yaml" ]] \
+      && grep -q 'source:' "$REPO_ROOT/contracts/evidence-packet.yaml" \
+      && grep -q 'collected_at:' "$REPO_ROOT/contracts/evidence-packet.yaml" \
+      && grep -q 'trust:' "$REPO_ROOT/contracts/evidence-packet.yaml"; then
+      check "contracts/evidence-packet.yaml defines source + collected_at + trust" "true"
+    else
+      check "contracts/evidence-packet.yaml defines source + collected_at + trust" "false"
     fi
     ;;
 
