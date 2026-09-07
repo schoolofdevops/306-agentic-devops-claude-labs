@@ -118,5 +118,71 @@
     "description": "FAIL-CLOSED: handed a file that is not a plan JSON, the analyzer refuses (exit 1) rather than emit a made-up verdict",
     "command": "scripts/plan-analyze.sh infra/versions.tf --field verdict >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m11-style-skill-present",
+    "description": "STYLE SKILL: the terraform-style skill exists — the house conventions are a written artifact the agent is held to, not a habit in one engineer's head",
+    "command": "[ -f .claude/skills/terraform-style/SKILL.md ] && echo present || echo missing",
+    "expect": "present"
+  },
+  {
+    "id": "m11-module-authored",
+    "description": "YOUR MODULE: the read-replica module exists with the three-file layout the estate uses (main/variables/outputs)",
+    "command": "M=infra/modules/read-replica; [ -f $M/main.tf ] && [ -f $M/variables.tf ] && [ -f $M/outputs.tf ] && echo authored || echo missing",
+    "expect": "authored"
+  },
+  {
+    "id": "m11-module-fmt-clean",
+    "description": "YOUR MODULE: terraform fmt reports no diff — the generated HCL matches canonical formatting",
+    "command": "terraform -chdir=infra/modules/read-replica fmt -check >/dev/null 2>&1 && echo clean || echo unformatted",
+    "expect": "clean"
+  },
+  {
+    "id": "m11-module-role-label",
+    "description": "HOUSE STYLE: the replica resource carries a role noun, not the generic 'this' — the estate names its primary resource for what it is",
+    "command": "M=infra/modules/read-replica/main.tf; [ -f $M ] || { echo missing; exit 0; }; grep -q 'resource \"aws_db_instance\" \"this\"' $M && echo generic || echo role-named",
+    "expect": "role-named"
+  },
+  {
+    "id": "m11-module-interpolated-name",
+    "description": "HOUSE STYLE: the replica identifier is interpolated from project+environment, not hardcoded — the module survives being reused in another environment",
+    "command": "grep -Eq 'identifier[[:space:]]*=[[:space:]]*\"\\$\\{var\\.project\\}-\\$\\{var\\.environment\\}' infra/modules/read-replica/main.tf 2>/dev/null && echo interpolated || echo hardcoded",
+    "expect": "interpolated"
+  },
+  {
+    "id": "m11-module-encryption-baseline",
+    "description": "SECURITY BASELINE: storage_encrypted is true in the module source — the baseline the security scan does NOT check, caught at authoring time by the style skill",
+    "command": "grep -Eq 'storage_encrypted[[:space:]]*=[[:space:]]*true' infra/modules/read-replica/main.tf 2>/dev/null && echo encrypted || echo unencrypted",
+    "expect": "encrypted"
+  },
+  {
+    "id": "m11-module-not-public",
+    "description": "SECURITY BASELINE: publicly_accessible is false — a datastore replica is never reachable from the internet, and Step 8 restored this after breaking it",
+    "command": "M=infra/modules/read-replica/main.tf; [ -f $M ] || { echo missing; exit 0; }; grep -Eq 'publicly_accessible[[:space:]]*=[[:space:]]*true' $M && echo public || echo private",
+    "expect": "private"
+  },
+  {
+    "id": "m11-module-outputs-described",
+    "description": "HOUSE STYLE: every output carries a description — an undocumented output is an undocumented API",
+    "command": "O=infra/modules/read-replica/outputs.tf; [ -f $O ] || { echo missing; exit 0; }; n=$(grep -c '^output' $O); d=$(grep -c 'description' $O); [ \"$n\" -gt 0 ] && [ \"$n\" = \"$d\" ] && echo described || echo undocumented",
+    "expect": "described"
+  },
+  {
+    "id": "m11-module-secrets-not-literal",
+    "description": "SECURITY: no literal password or secret string in the module source — secrets arrive as sensitive variables",
+    "command": "M=infra/modules/read-replica; [ -f $M/main.tf ] || { echo missing; exit 0; }; grep -Eiq '(password|secret)[[:space:]]*=[[:space:]]*\"[^\"$]' $M/*.tf && echo literal-secret || echo clean",
+    "expect": "clean"
+  },
+  {
+    "id": "m11-learner-plan-clean",
+    "description": "YOUR PLAN: the plan generated from YOUR module analyzes to 'clean' — a pure-create change with nothing destroyed or replaced",
+    "command": "scripts/plan-analyze.sh infra/modules/read-replica/tests/plan.json --field verdict 2>/dev/null || echo no-plan",
+    "expect": "clean"
+  },
+  {
+    "id": "m11-learner-plan-security-clean",
+    "description": "YOUR PLAN: the security scan clears YOUR plan — the module you shipped has no public exposure, after you broke it in Step 8 and put it back",
+    "command": "scripts/tf-security-scan.sh infra/modules/read-replica/tests/plan.json --field verdict 2>/dev/null || echo no-plan",
+    "expect": "clean"
   }
 ]
