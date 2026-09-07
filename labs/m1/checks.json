@@ -28,5 +28,35 @@
     "description": "Helm chart orders-api readiness probe path is /healthz",
     "command": "grep -A2 'readinessProbe' platform/helm/orders-api/values.yaml | grep 'path:' | awk '{print $2}' | head -1",
     "expect": "/healthz"
+  },
+  {
+    "id": "m1-service-context-authored",
+    "description": "YOUR CONTEXT FILE: app/orders-api/CLAUDE.md exists — the service carries written instructions for whoever picks it up next, human or agent",
+    "command": "[ -f app/orders-api/CLAUDE.md ] && echo present || echo missing",
+    "expect": "present"
+  },
+  {
+    "id": "m1-context-has-three-sections",
+    "description": "YOUR CONTEXT FILE: it declares all three sections — evidence to collect first, change rules, and how the service is verified",
+    "command": "F=app/orders-api/CLAUDE.md; [ -f $F ] || { echo missing; exit 0; }; grep -qi 'evidence' $F && grep -qi 'change rules' $F && grep -qi 'verif' $F && echo complete || echo incomplete",
+    "expect": "complete"
+  },
+  {
+    "id": "m1-context-names-the-grader",
+    "description": "YOUR CONTEXT FILE: it names the grader as the authority on done — so an agent reading it learns the repository owns the verdict, not the agent",
+    "command": "F=app/orders-api/CLAUDE.md; [ -f $F ] || { echo missing; exit 0; }; grep -q 'grade.sh m1' $F && echo names-grader || echo silent",
+    "expect": "names-grader"
+  },
+  {
+    "id": "m1-context-forbids-main",
+    "description": "YOUR CONTEXT FILE: it states the branch-only rule — repairs are proposals on a branch, never direct commits to main",
+    "command": "F=app/orders-api/CLAUDE.md; [ -f $F ] || { echo missing; exit 0; }; grep -Eqi 'never (commit|push)[^.]*main|branch' $F && echo branch-rule || echo absent",
+    "expect": "branch-rule"
+  },
+  {
+    "id": "m1-repair-on-branch-then-merged",
+    "description": "YOUR REPAIR: the fix is committed into main's history since m1-start — the repair was made and landed, not just left in the working tree",
+    "command": "n=$(git log m1-start..main --oneline -- app/orders-api/src/health.py platform/helm/orders-api/values.yaml 2>/dev/null | wc -l | tr -d ' '); [ \"$n\" -gt 0 ] && echo landed || echo not-landed",
+    "expect": "landed"
   }
 ]
