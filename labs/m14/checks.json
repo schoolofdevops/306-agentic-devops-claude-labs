@@ -88,5 +88,65 @@
     "description": "ALERTING: alertmanager routes to a file/webhook receiver (no human paged in the lab) — alerts are captured as evidence, the routing is real",
     "command": "grep -Eq 'receiver:[[:space:]]*file-logger' observability/alertmanager/alertmanager.yml && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m14-alert-correlate-skill-present",
+    "description": "YOUR SKILL: .claude/skills/alert-correlate/SKILL.md exists — the correlation procedure is an artifact the next investigation loads, not something re-derived under pressure",
+    "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] && echo present || echo missing",
+    "expect": "present"
+  },
+  {
+    "id": "m14-skill-trigger-wording",
+    "description": "YOUR SKILL: the description begins 'Use when' — the frontmatter is written as an invocation trigger, which is what makes a skill fire on relevance",
+    "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; grep -qE '^description: *Use when' .claude/skills/alert-correlate/SKILL.md && echo triggered || echo untriggered",
+    "expect": "triggered"
+  },
+  {
+    "id": "m14-skill-queries-bounded",
+    "description": "ANTI-FIREHOSE: no unbounded matchers, and raw counters are queried through a range selector — an unbounded query is a context flood, not evidence",
+    "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; b=$(grep -oE '\\[\\$?\\{?window\\}?\\]|\\[[0-9]+[smh]\\]' .claude/skills/alert-correlate/SKILL.md | wc -l | tr -d ' '); u=$(grep -E '^[[:space:]]*(Q |curl )' .claude/skills/alert-correlate/SKILL.md | grep -c '__name__=~'); [ \"$b\" -ge 2 ] && [ \"$u\" -eq 0 ] && echo bounded || echo unbounded",
+    "expect": "bounded"
+  },
+  {
+    "id": "m14-skill-names-four-signals",
+    "description": "YOUR SKILL: all four golden signals are named as queries — latency, traffic, errors, saturation",
+    "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; ok=1; for k in latency_p95 requests_total error_rate upstream_retries; do grep -q \"$k\" .claude/skills/alert-correlate/SKILL.md || ok=0; done; [ \"$ok\" -eq 1 ] && echo complete || echo incomplete",
+    "expect": "complete"
+  },
+  {
+    "id": "m14-skill-declares-trace-gap",
+    "description": "HONEST GAP: the skill declares that distributed traces are unavailable — a skill that silently omits a telemetry type will be trusted for a question it cannot answer",
+    "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; grep -qi 'trace' .claude/skills/alert-correlate/SKILL.md && echo declared || echo silent",
+    "expect": "declared"
+  },
+  {
+    "id": "m14-learner-packet-validates",
+    "description": "YOUR PACKET: the evidence packet your agent produced passes evidence-validate.sh — same validator a human investigator's output must pass",
+    "command": "[ -f agentops/incidents/inc-002-packet.json ] || { echo missing; exit 0; }; scripts/evidence-validate.sh agentops/incidents/inc-002-packet.json >/dev/null 2>&1 && echo valid || echo invalid",
+    "expect": "valid"
+  },
+  {
+    "id": "m14-learner-packet-sources-are-commands",
+    "description": "PROVENANCE: every sources[] entry looks like a command that was run, not a sentence describing where you looked",
+    "command": "[ -f agentops/incidents/inc-002-packet.json ] || { echo missing; exit 0; }; jq -e '[.evidence.sources[] | test(\"curl|grep|diff|docker|jq|/\")] | all and (length>0)' agentops/incidents/inc-002-packet.json >/dev/null 2>&1 && echo commands || echo prose",
+    "expect": "commands"
+  },
+  {
+    "id": "m14-learner-packet-declares-scope",
+    "description": "YOUR PACKET: out_of_scope is non-empty — it names what this investigation did not cover",
+    "command": "[ -f agentops/incidents/inc-002-packet.json ] || { echo missing; exit 0; }; jq -e '.out_of_scope | length > 0' agentops/incidents/inc-002-packet.json >/dev/null 2>&1 && echo declared || echo empty",
+    "expect": "declared"
+  },
+  {
+    "id": "m14-learner-hypotheses-independent",
+    "description": "NO CONSENSUS THEATER: every hypothesis carries derived_from null — three agents that read each other are one agent with extra steps",
+    "command": "[ -f agentops/incidents/inc-002-hypotheses.json ] || { echo missing; exit 0; }; jq -e '[.[] | .derived_from] | all(. == null)' agentops/incidents/inc-002-hypotheses.json >/dev/null 2>&1 && echo independent || echo derivative",
+    "expect": "independent"
+  },
+  {
+    "id": "m14-learner-hypotheses-synthesize",
+    "description": "SYNTHESIS: synthesize-hypotheses.sh accepts your three packets and returns a verdict — the existing script, unmodified, judging your agents' output",
+    "command": "[ -f agentops/incidents/inc-002-hypotheses.json ] || { echo missing; exit 0; }; scripts/synthesize-hypotheses.sh agentops/incidents/inc-002-hypotheses.json 2>/dev/null | grep -q '^verdict=' && echo synthesized || echo rejected",
+    "expect": "synthesized"
   }
 ]
