@@ -82,5 +82,59 @@
     "description": "READ-ONLY SAFETY: the boundary the loop delegates to refuses an irreversible production action (delete) — the last line proving triage cannot remediate",
     "command": "scripts/action-boundary-check.sh --env production --action delete --field outcome",
     "expect": "refuse-irreversible"
+  },
+  {
+    "id": "m17-receiver-present",
+    "description": "YOUR RECEIVER: scripts/alert-receiver.js exists — the webhook endpoint Alertmanager has been posting into a void",
+    "command": "[ -f scripts/alert-receiver.js ] && echo present || echo missing",
+    "expect": "present"
+  },
+  {
+    "id": "m17-receiver-emits-envelope",
+    "description": "YOUR RECEIVER: it builds the envelope fields the contract requires — correlation_id, source, type, subject",
+    "command": "[ -f scripts/alert-receiver.js ] || { echo missing; exit 0; }; ok=1; for k in correlation_id source type subject; do grep -q \"$k\" scripts/alert-receiver.js || ok=0; done; [ \"$ok\" -eq 1 ] && echo complete || echo incomplete",
+    "expect": "complete"
+  },
+  {
+    "id": "m17-correlation-id-is-stable",
+    "description": "CORRELATION ID: derived from alertname + startsAt, not the per-delivery id or fingerprint — a redelivery of the same incident must key the same",
+    "command": "[ -f scripts/alert-receiver.js ] || { echo missing; exit 0; }; grep -q 'alertname' scripts/alert-receiver.js && grep -q 'startsAt' scripts/alert-receiver.js && echo stable || echo unstable",
+    "expect": "stable"
+  },
+  {
+    "id": "m17-alertmanager-webhook-reaches-host",
+    "description": "THE REPAIR: the Alertmanager webhook no longer points at localhost — inside a container that is the container itself, so the receiver never heard from it",
+    "command": "[ -f observability/alertmanager/alertmanager.yml ] || { echo missing; exit 0; }; grep -q 'localhost:9095' observability/alertmanager/alertmanager.yml && echo unreachable || echo reachable",
+    "expect": "reachable"
+  },
+  {
+    "id": "m17-events-delivered",
+    "description": "REAL DELIVERY: at least one envelope in agentops/events/ was written by a real Alertmanager POST, and it validates",
+    "command": "f=$(ls agentops/events/*.json 2>/dev/null | head -1); [ -n \"$f\" ] || { echo none; exit 0; }; scripts/event-validate.sh --field correlation_id \"$f\" >/dev/null 2>&1 && echo delivered || echo invalid",
+    "expect": "delivered"
+  },
+  {
+    "id": "m17-event-source-is-alertmanager",
+    "description": "REAL DELIVERY: the envelope came from alertmanager, not from a hand-written fixture",
+    "command": "f=$(ls agentops/events/*.json 2>/dev/null | head -1); [ -n \"$f\" ] || { echo none; exit 0; }; [ \"$(jq -r .source \"$f\")\" = \"alertmanager\" ] && echo real || echo synthetic",
+    "expect": "real"
+  },
+  {
+    "id": "m17-triage-calls-a-model",
+    "description": "NO FAKE HYPOTHESIS: triage-run.sh invokes a real model with a schema instead of templating the finding with jq",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q 'unattended read-only triage collected evidence for' scripts/triage-run.sh && echo templated || { grep -q 'json-schema' scripts/triage-run.sh && echo model-call || echo neither; }",
+    "expect": "model-call"
+  },
+  {
+    "id": "m17-triage-validates-before-write",
+    "description": "FAIL CLOSED ON THE MODEL: the model's structured output is extracted and validated before it reaches disk — a packet the model got wrong must never be written",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q 'structured_output' scripts/triage-run.sh && grep -q 'evidence-validate' scripts/triage-run.sh && echo guarded || echo unguarded",
+    "expect": "guarded"
+  },
+  {
+    "id": "m17-schedule-installed",
+    "description": "SCHEDULED TRIGGER: platform/schedules/ carries a timer or plist that runs the triage scan unattended",
+    "command": "ls platform/schedules/* >/dev/null 2>&1 && echo present || echo missing",
+    "expect": "present"
   }
 ]
