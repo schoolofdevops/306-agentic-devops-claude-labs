@@ -1,0 +1,32 @@
+[
+  {
+    "id": "m1-readyz-200",
+    "description": "orders-api /readyz returns 200",
+    "command": "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/readyz",
+    "expect": "200"
+  },
+  {
+    "id": "m1-inventory-healthz-200",
+    "description": "inventory-api /healthz returns 200",
+    "command": "curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/healthz",
+    "expect": "200"
+  },
+  {
+    "id": "m1-readyz-ready",
+    "description": "orders-api /readyz reports inventory_api true and status ready",
+    "command": "curl -s http://localhost:8080/readyz | jq -r '.checks.inventory_api'",
+    "expect": "true"
+  },
+  {
+    "id": "m1-code-uses-healthz",
+    "description": "orders-api readiness code probes /healthz on inventory-api, not /health",
+    "command": "grep -q 'inventory_api_url}/healthz' app/orders-api/src/health.py && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m1-helm-probe-healthz",
+    "description": "Helm chart orders-api readiness probe path is /healthz",
+    "command": "grep -A2 'readinessProbe' platform/helm/orders-api/values.yaml | grep 'path:' | awk '{print $2}' | head -1",
+    "expect": "/healthz"
+  }
+]

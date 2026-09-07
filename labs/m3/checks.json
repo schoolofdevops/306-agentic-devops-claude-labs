@@ -1,0 +1,38 @@
+[
+  {
+    "id": "m3-root-claude-budgeted",
+    "description": "root CLAUDE.md is present and budgeted (< 150 lines)",
+    "command": "[ -f CLAUDE.md ] && [ \"$(wc -l < CLAUDE.md)\" -lt 150 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m3-orders-scoped-python",
+    "description": "app/orders-api/CLAUDE.md scopes Python rules (pytest + the /healthz-not-/health trap)",
+    "command": "[ -f app/orders-api/CLAUDE.md ] && grep -q 'pytest' app/orders-api/CLAUDE.md && grep -q '/healthz' app/orders-api/CLAUDE.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m3-inventory-scoped-go",
+    "description": "app/inventory-api/CLAUDE.md scopes Go rules (go test)",
+    "command": "[ -f app/inventory-api/CLAUDE.md ] && grep -q 'go test' app/inventory-api/CLAUDE.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m3-infra-scoped-plan-only",
+    "description": "infra/CLAUDE.md forbids terraform apply/destroy (plan-only rule)",
+    "command": "[ -f infra/CLAUDE.md ] && grep -Eq 'terraform (apply|destroy)' infra/CLAUDE.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m3-platform-scoped-no-delete-ns",
+    "description": "platform/CLAUDE.md forbids kubectl delete namespace",
+    "command": "[ -f platform/CLAUDE.md ] && grep -q 'delete namespace' platform/CLAUDE.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m3-evidence-schema",
+    "description": "contracts/evidence-packet.yaml defines provenance fields (source, collected_at, trust)",
+    "command": "[ -f contracts/evidence-packet.yaml ] && grep -q 'source:' contracts/evidence-packet.yaml && grep -q 'collected_at:' contracts/evidence-packet.yaml && grep -q 'trust:' contracts/evidence-packet.yaml && echo pass || echo fail",
+    "expect": "pass"
+  }
+]
