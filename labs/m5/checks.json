@@ -8,13 +8,13 @@
   {
     "id": "m5-version-route-declared",
     "description": "orders-api source declares a /version route",
-    "command": "grep -Rq '\"/version\"' app/orders-api/src 2>/dev/null && echo pass || echo fail",
+    "command": "grep -Rq --include='*.py' '\"/version\"' app/orders-api/src 2>/dev/null && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m5-version-test-present",
     "description": "a test in orders-api covers the /version endpoint",
-    "command": "grep -Rq '/version' app/orders-api/tests 2>/dev/null && echo pass || echo fail",
+    "command": "grep -Rq --include='*.py' 'def test_version' app/orders-api/tests 2>/dev/null && echo pass || echo fail",
     "expect": "pass"
   },
   {
@@ -28,5 +28,41 @@
     "description": "GET /version returns 200 with a version field (behavior, not just source)",
     "command": "PY=python3; [ -x \"$PWD/app/orders-api/.venv/bin/python\" ] && PY=\"$PWD/app/orders-api/.venv/bin/python\"; ( cd app/orders-api && \"$PY\" -c 'from fastapi.testclient import TestClient; from src.main import create_app; r=TestClient(create_app()).get(\"/version\"); assert r.status_code==200; assert \"version\" in r.json()' >/dev/null 2>&1 ) && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m5-contract-boundary-authored",
+    "description": "YOUR CONTRACT: target is set and at least two actions are explicitly denied — you wrote the boundary, and a boundary with nothing denied is not a boundary",
+    "command": "[ -f agentops/m5-task-contract.yaml ] || { echo missing; exit 0; }; t=$(yq -r '.task.target // \"\"' agentops/m5-task-contract.yaml); n=$(yq -r '.task.actions.denied | length // 0' agentops/m5-task-contract.yaml 2>/dev/null); [ -n \"$t\" ] && [ \"$n\" -ge 2 ] && echo bounded || echo unbounded",
+    "expect": "bounded"
+  },
+  {
+    "id": "m5-contract-acceptance-count",
+    "description": "YOUR CONTRACT: acceptance lists at least three criteria — one check is a hope, three is a contract",
+    "command": "[ -f agentops/m5-task-contract.yaml ] || { echo missing; exit 0; }; n=$(yq -r '.task.acceptance | length // 0' agentops/m5-task-contract.yaml 2>/dev/null); [ \"$n\" -ge 3 ] && echo sufficient || echo thin",
+    "expect": "sufficient"
+  },
+  {
+    "id": "m5-contract-acceptance-executable",
+    "description": "YOUR CONTRACT: every acceptance entry is a runnable shell command that exits 0 — the contract can be executed, not just read",
+    "command": "[ -f agentops/m5-task-contract.yaml ] || { echo missing; exit 0; }; fail=0; while IFS= read -r cmd; do [ -z \"$cmd\" ] && continue; bash -c \"$cmd\" >/dev/null 2>&1 || fail=1; done < <(yq -r '.task.acceptance[]' agentops/m5-task-contract.yaml 2>/dev/null); [ \"$fail\" -eq 0 ] && echo all-pass || echo some-fail",
+    "expect": "all-pass"
+  },
+  {
+    "id": "m5-superpowers-installed",
+    "description": "THE HARNESS: superpowers resolves as an installed plugin — the loop the lesson teaches is now something you can run",
+    "command": "claude plugin list 2>/dev/null | grep -qi 'superpowers' && echo installed || echo absent",
+    "expect": "installed"
+  },
+  {
+    "id": "m5-done-record-five-parts",
+    "description": "YOUR DONE RECORD: agentops/m5-done.md covers all five parts — tests, evidence, rollback, residual risk, and cost",
+    "command": "D=agentops/m5-done.md; [ -f $D ] || { echo missing; exit 0; }; ok=1; for k in 'tests pass' evidence rollback residual cost; do grep -qi \"$k\" $D || ok=0; done; [ \"$ok\" -eq 1 ] && echo complete || echo incomplete",
+    "expect": "complete"
+  },
+  {
+    "id": "m5-done-residual-risk-honest",
+    "description": "YOUR DONE RECORD: the residual-risk entry names something NOT proven — a done record that claims everything is covered is marketing",
+    "command": "[ -f agentops/m5-done.md ] || { echo missing; exit 0; }; grep -A3 -i 'residual' agentops/m5-done.md | grep -Eqi 'not |never |untested|unproven|no ' && echo honest || echo overclaimed",
+    "expect": "honest"
   }
 ]
