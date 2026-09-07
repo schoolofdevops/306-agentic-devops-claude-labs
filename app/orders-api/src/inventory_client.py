@@ -3,6 +3,7 @@ import logging
 import time
 import httpx
 from src.config import Settings
+from src.metrics import UPSTREAM_RETRIES
 
 logger = logging.getLogger("orders-api.inventory_client")
 
@@ -33,6 +34,7 @@ class InventoryClient:
                     )
                     self._retry_count += 1
                     self._total_retries += 1
+                    UPSTREAM_RETRIES.inc()
                     await asyncio.sleep(delay)
         raise last_exc
 
