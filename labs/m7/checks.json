@@ -34,5 +34,11 @@
     "description": "the Agent Run Ledger captured all three shootout approaches (cli, skill, mcp)",
     "command": "jq -e -s '([.[].approach] | unique | sort) == [\"cli\",\"mcp\",\"skill\"]' labs/m7/shootout.jsonl >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m7-shootout-ledger-three-approaches",
+    "description": "the shootout ledger captured all three approaches (cli, skill, mcp) — the comparison was actually run, not read about",
+    "command": "L=labs/m7/shootout.jsonl; [ -f $L ] || { echo missing; exit 0; }; jq -e -s '([.[].approach] | unique | sort) == [\"cli\",\"mcp\",\"skill\"]' $L >/dev/null 2>&1 && echo complete || echo incomplete",
+    "expect": "complete"
   }
 ]
