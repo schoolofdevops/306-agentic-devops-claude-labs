@@ -54,27 +54,17 @@ case "$MODULE" in
     echo "Checking: Readiness probe fix"
     echo ""
 
-    # Check 1: orders-api readiness endpoint returns 200
-    READYZ=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/readyz 2>/dev/null || echo "000")
-    check "orders-api /readyz returns 200" "$([[ "$READYZ" == "200" ]] && echo true || echo false)"
-
-    # Check 2: inventory-api healthz returns 200
-    HEALTHZ=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/healthz 2>/dev/null || echo "000")
-    check "inventory-api /healthz returns 200" "$([[ "$HEALTHZ" == "200" ]] && echo true || echo false)"
-
-    # Check 3: Check that the code uses /healthz not /health for inventory check
-    if grep -r '/healthz' "$REPO_ROOT/app/orders-api/src/health.py" &>/dev/null; then
-      check "orders-api readiness checks /healthz on inventory-api" "true"
-    elif grep -r '/healthz' "$REPO_ROOT/app/orders-api/src/main.py" &>/dev/null; then
-      check "orders-api readiness checks /healthz on inventory-api" "true"
+    CHECKS="$REPO_ROOT/labs/m1/checks.json"
+    if [[ ! -f "$CHECKS" ]]; then
+      check "labs/m1/checks.json present" "false"
     else
-      check "orders-api readiness checks /healthz on inventory-api" "false"
-    fi
-
-    # Check 4: Helm chart readiness probe fixed (if chart exists)
-    if [[ -f "$REPO_ROOT/platform/helm/orders-api/values.yaml" ]]; then
-      PROBE_PATH=$(grep -A2 'readinessProbe' "$REPO_ROOT/platform/helm/orders-api/values.yaml" | grep 'path:' | awk '{print $2}' | head -1)
-      check "Helm chart readiness probe uses /healthz" "$([[ "$PROBE_PATH" == "/healthz" ]] && echo true || echo false)"
+      while IFS= read -r row; do
+        desc="$(echo "$row" | jq -r '.description')"
+        cmd="$(echo "$row" | jq -r '.command')"
+        exp="$(echo "$row" | jq -r '.expect')"
+        got="$(cd "$REPO_ROOT" && bash -c "$cmd" 2>/dev/null || true)"
+        check "$desc" "$([[ "$got" == "$exp" ]] && echo true || echo false)"
+      done < <(jq -c '.[]' "$CHECKS")
     fi
     ;;
 
