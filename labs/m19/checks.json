@@ -142,5 +142,77 @@
     "description": "CAPSTONE END-TO-END: running all four phase gates in order completes the 14-step workflow with no gate skipped or failed",
     "command": "scripts/capstone-triage.sh reset >/dev/null 2>&1; scripts/capstone-triage.sh all --field verdict 2>/dev/null | tail -1",
     "expect": "pass"
+  },
+  {
+    "id": "m19-tracks-learner-produced",
+    "description": "PART I: the four investigation tracks in agentops/capstone/tracks/ were produced by your subagents, each with derived_from null — not read from fixtures/capstone/",
+    "command": "ls agentops/capstone/tracks/*.json >/dev/null 2>&1 || { echo none; exit 0; }; n=$(ls agentops/capstone/tracks/*.json | wc -l | tr -d ' '); jq -e -s '[.[] | .derived_from] | all(. == null)' agentops/capstone/tracks/*.json >/dev/null 2>&1 && [ \"$n\" -ge 3 ] && echo independent || echo derivative",
+    "expect": "independent"
+  },
+  {
+    "id": "m19-nano-declared",
+    "description": "NANO PROJECT: you named the agent you built in agentops/capstone/nano-project.txt — the grader follows your declaration, whichever option you chose",
+    "command": "[ -s agentops/capstone/nano-project.txt ] && echo declared || echo undeclared",
+    "expect": "declared"
+  },
+  {
+    "id": "m19-nano-skill-is-new",
+    "description": "NANO PROJECT: the skill exists and is not one of the seven that shipped with the course — this one is yours",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; for s in incident-triage k8s-diagnose release-check service-health service-restart terraform-plan-review terraform-style; do [ \"$N\" = \"$s\" ] && { echo shipped; exit 0; }; done; [ -f .claude/skills/$N/SKILL.md ] && echo new || echo missing",
+    "expect": "new"
+  },
+  {
+    "id": "m19-nano-skill-two-zones",
+    "description": "NANO PROJECT: the skill separates a deterministic collection zone from a reasoning zone and carries a NEVER DO list",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; S=.claude/skills/$N/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi \"deterministic\" $S && grep -qi \"reasoning\" $S && grep -qi \"never\" $S && echo structured || echo unstructured",
+    "expect": "structured"
+  },
+  {
+    "id": "m19-nano-role-present",
+    "description": "NANO PROJECT: a scoped role ships alongside the skill — the tool bundle is what makes the dangerous action structurally impossible",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; [ -f .claude/agents/$N.md ] && echo present || echo missing",
+    "expect": "present"
+  },
+  {
+    "id": "m19-nano-role-in-matrix",
+    "description": "NANO PROJECT: the role is wired into contracts/authority-matrix.yaml — a role outside the matrix is undeclared authority",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; grep -q \"$N\" contracts/authority-matrix.yaml && echo wired || echo unwired",
+    "expect": "wired"
+  },
+  {
+    "id": "m19-nano-authority-is-readonly",
+    "description": "NANO PROJECT: role-authority-check refuses a write for your role — the agent you shipped cannot mutate what it inspects",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; scripts/role-authority-check.sh \"$N\" write >/dev/null 2>&1; [ $? -ne 0 ] && echo blocked || echo writable",
+    "expect": "blocked"
+  },
+  {
+    "id": "m19-nano-in-starter",
+    "description": "NANO PROJECT: it ships — a row in starter/MANIFEST.md and a stage entry in starter/adoption-ladder.yaml with its own trust gate",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; grep -q \"$N\" starter/MANIFEST.md && grep -q \"$N\" starter/adoption-ladder.yaml && echo shipped || echo unpackaged",
+    "expect": "shipped"
+  },
+  {
+    "id": "m19-nano-changelog",
+    "description": "NANO PROJECT: starter/CHANGELOG.md records the addition — a starter that changes without a changelog entry cannot be rolled back deliberately",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; grep -q \"$N\" starter/CHANGELOG.md && echo recorded || echo silent",
+    "expect": "recorded"
+  },
+  {
+    "id": "m19-nano-output-validates",
+    "description": "NANO PROJECT: the packet your agent produced passes an existing validator — output nothing else can read is not a handoff",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; F=agentops/capstone/$N-packet.json; [ -f $F ] || { echo missing; exit 0; }; scripts/evidence-validate.sh $F >/dev/null 2>&1 && echo valid || echo invalid",
+    "expect": "valid"
+  },
+  {
+    "id": "m19-nano-break-it-evidence",
+    "description": "NANO PROJECT: you broke it on purpose and captured the finding — agentops/capstone/break-it.md names what the agent caught",
+    "command": "[ -s agentops/capstone/break-it.md ] && echo captured || echo missing",
+    "expect": "captured"
+  },
+  {
+    "id": "m19-nano-defense",
+    "description": "NANO PROJECT: agentops/capstone/defense.md answers all six questions, including what it cannot do and what would make you turn it off",
+    "command": "F=agentops/capstone/defense.md; [ -f $F ] || { echo missing; exit 0; }; n=$(grep -c '^##' $F); [ \"$n\" -ge 6 ] && echo defended || echo incomplete",
+    "expect": "defended"
   }
 ]
