@@ -37,7 +37,7 @@
   },
   {
     "id": "m10-topology-fail-closed",
-    "description": "FAIL-CLOSED: the decision table refuses an ambiguous task shape (exit 1) rather than guessing a topology",
+    "description": "FAIL-CLOSED: the decision table refuses an ambiguous task profile (exit 1) rather than guessing a topology",
     "command": "scripts/orchestration-topology.sh y n maybe n >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
     "expect": "pass"
   },

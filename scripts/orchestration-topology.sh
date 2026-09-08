@@ -22,9 +22,9 @@
 #
 # Exit 0  -> a topology was chosen (printed on stdout)
 # Exit 1  -> FAIL-CLOSED: an argument was missing or not y/n — the table does not
-#            guess a topology from an ambiguous task shape.
+#            guess a topology from an ambiguous task profile.
 #
-# This is the "choose the shape before you build it" discipline made runnable:
+# This is the "choose the topology before you build it" discipline made runnable:
 # the wrong topology (a subagent where you needed a fork, a team where a workflow
 # would do) is the #1 source of orchestration chaos, and it is a decision you can
 # get right deterministically.
@@ -39,7 +39,7 @@ norm() {
   case "$(printf '%s' "$1" | tr 'A-Z' 'a-z')" in
     y|yes|true|1) echo y ;;
     n|no|false|0) echo n ;;
-    *) fail_closed "argument '$1' is not y/n (task shape must be unambiguous)" ;;
+    *) fail_closed "argument '$1' is not y/n (task profile must be unambiguous)" ;;
   esac
 }
 
@@ -51,7 +51,7 @@ D="$(norm "$3")"   # deterministic: must be reproducible/scriptable?
 L="$(norm "$4")"   # longrunning: outlives this turn?
 
 # The decision table. Order matters: the most specific, highest-stakes
-# distinctions are tested first, so each task shape resolves to exactly one row.
+# distinctions are tested first, so each task profile resolves to exactly one row.
 choose() {
   # Reproducible, scriptable orchestration always wins — determinism is a
   # property you cannot get from an interactive agent improvising.
