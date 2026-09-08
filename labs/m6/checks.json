@@ -79,14 +79,14 @@
   },
   {
     "id": "m6-rebuild-notes-authored",
-    "description": "YOUR REBUILD: .claude/skills/service-health/REBUILD-NOTES.md exists — the one artifact this module ships that did not ship with the workspace, since every skill file did",
-    "command": "[ -f .claude/skills/service-health/REBUILD-NOTES.md ] && echo pass || echo fail",
+    "description": "YOUR REBUILD: agentops/rebuild-notes-service-health.md exists — the one artifact this module ships that did not ship with the workspace, since every skill file did",
+    "command": "[ -f agentops/rebuild-notes-service-health.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m6-rebuild-notes-compare-both-ways",
     "description": "YOUR REBUILD: the notes compare in both directions — what the reference had that yours missed AND something yours does better — because a reference written by someone else is not automatically right about your platform",
-    "command": "F=.claude/skills/service-health/REBUILD-NOTES.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'miss|lack|absent|did not|missing' \"$F\" && grep -qiE 'better|improve|stronger|clearer' \"$F\" && echo pass || echo fail",
+    "command": "F=agentops/rebuild-notes-service-health.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'miss|lack|absent|did not|missing' \"$F\" && grep -qiE 'better|improve|stronger|clearer' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   }
 ]

@@ -73,14 +73,14 @@
   },
   {
     "id": "m9-rebuild-notes-authored",
-    "description": "YOUR REBUILD: .claude/agents/REBUILD-NOTES.md exists — every role file shipped with the workspace, so the comparison is the one artifact this module adds",
-    "command": "[ -f .claude/agents/REBUILD-NOTES.md ] && echo pass || echo fail",
+    "description": "YOUR REBUILD: agentops/rebuild-notes-roles.md exists — every role file shipped with the workspace, so the comparison is the one artifact this module adds",
+    "command": "[ -f agentops/rebuild-notes-roles.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m9-rebuild-notes-cover-authority-levers",
     "description": "YOUR REBUILD: the notes address the levers that carry authority — tools and model — rather than wording, because a missing disallowedTools line reads cosmetic and is the whole boundary",
-    "command": "F=.claude/agents/REBUILD-NOTES.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'tools' \"$F\" && grep -qiE 'model|opus|haiku|sonnet' \"$F\" && echo pass || echo fail",
+    "command": "F=agentops/rebuild-notes-roles.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'tools' \"$F\" && grep -qiE 'model|opus|haiku|sonnet' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   }
 ]

@@ -20,31 +20,31 @@
   {
     "id": "m2-deny-overrides-allow",
     "description": "deny overrides allow: with rm both allowed AND denied the agent is refused (victim survives), while a control run with rm only allowed really does delete — so this passes only when the agent actually ran",
-    "command": "V=$(mktemp -t m2victim.XXXXXX); W=$(mktemp -t m2ctl.XXXXXX); printf '{\"permissions\":{\"allow\":[\"Bash(rm:*)\"]}}' > .claude/settings.local.json; timeout 120 claude -p \"Run exactly: rm $W — reply RAN or BLOCKED.\" --permission-mode dontAsk </dev/null >/dev/null 2>&1 || true; printf '{\"permissions\":{\"allow\":[\"Bash(rm:*)\"],\"deny\":[\"Bash(rm:*)\"]}}' > .claude/settings.local.json; timeout 120 claude -p \"Run exactly: rm $V — reply RAN or BLOCKED.\" --permission-mode dontAsk </dev/null >/dev/null 2>&1 || true; rm -f .claude/settings.local.json; if [ -f \"$W\" ]; then rm -f \"$V\" \"$W\"; echo \"fail: control run did not delete — the agent never executed, so the deny result proves nothing\"; exit 0; fi; [ -f \"$V\" ] && { rm -f \"$V\"; echo pass; } || echo fail",
+    "command": "V=$(mktemp -t m2victim.XXXXXX); W=$(mktemp -t m2ctl.XXXXXX); printf '{\"permissions\":{\"allow\":[\"Bash(rm:*)\"]}}' > .claude/settings.local.json; timeout 120 claude -p \"Run exactly: rm $W — reply RAN or BLOCKED.\" --permission-mode auto </dev/null >/dev/null 2>&1 || true; printf '{\"permissions\":{\"allow\":[\"Bash(rm:*)\"],\"deny\":[\"Bash(rm:*)\"]}}' > .claude/settings.local.json; timeout 120 claude -p \"Run exactly: rm $V — reply RAN or BLOCKED.\" --permission-mode auto </dev/null >/dev/null 2>&1 || true; rm -f .claude/settings.local.json; if [ -f \"$W\" ]; then rm -f \"$V\" \"$W\"; echo \"fail: control run did not delete — the agent never executed, so the deny result proves nothing\"; exit 0; fi; [ -f \"$V\" ] && { rm -f \"$V\"; echo pass; } || echo fail",
     "expect": "pass"
   },
   {
     "id": "m2-sandbox-blocks-network",
-    "description": "Bash sandbox blocks outbound network fail-closed: an external fetch produces no file, while a control run writing a local file succeeds — so this passes only when the agent actually ran inside the sandbox",
-    "command": "N=$(mktemp -t m2net.XXXXXX); C=$(mktemp -t m2sbx.XXXXXX); rm -f \"$N\" \"$C\"; printf '{\"sandbox\":{\"enabled\":true}}' > .claude/settings.local.json; timeout 120 claude -p \"Run exactly: echo sandbox-control > $C — reply RAN or BLOCKED.\" --permission-mode dontAsk </dev/null >/dev/null 2>&1 || true; timeout 120 claude -p \"Run exactly: curl -s --max-time 5 https://example.com -o $N — reply RAN or BLOCKED.\" --permission-mode dontAsk </dev/null >/dev/null 2>&1 || true; rm -f .claude/settings.local.json; if [ ! -f \"$C\" ]; then rm -f \"$N\"; echo \"fail: control run wrote no file — the agent never executed, so the network result proves nothing\"; exit 0; fi; rm -f \"$C\"; [ ! -f \"$N\" ] && echo pass || { rm -f \"$N\"; echo fail; }",
+    "description": "Bash sandbox blocks outbound network fail-closed: curl to an external host fails inside the sandbox (non-zero exit), while a control write inside the workspace succeeds — so this passes only when the agent actually ran",
+    "command": "rm -f ./m2-sbx-control.txt ./m2-sbx-net.err; printf '{\"sandbox\":{\"enabled\":true}}' > .claude/settings.local.json; timeout 120 claude -p \"Run exactly: echo sandbox-control > ./m2-sbx-control.txt — reply RAN or BLOCKED.\" --permission-mode dontAsk </dev/null >/dev/null 2>&1 || true; timeout 120 claude -p \"Run exactly: curl -sS --max-time 5 https://example.com > /dev/null 2> ./m2-sbx-net.err; echo rc=\\$? >> ./m2-sbx-net.err — then reply DONE.\" --permission-mode dontAsk </dev/null >/dev/null 2>&1 || true; rm -f .claude/settings.local.json; if [ ! -f ./m2-sbx-control.txt ]; then rm -f ./m2-sbx-net.err; echo \"fail: control write did not happen — the agent never executed, so the network result proves nothing\"; exit 0; fi; rm -f ./m2-sbx-control.txt; if grep -q \"rc=0\" ./m2-sbx-net.err 2>/dev/null; then rm -f ./m2-sbx-net.err; echo fail; else rm -f ./m2-sbx-net.err; echo pass; fi",
     "expect": "pass"
   },
   {
     "id": "m2-posture-policy-authored",
-    "description": "YOUR POLICY: .claude/posture-policy.md exists — the module ships a written posture policy, not just an understanding of one",
-    "command": "[ -f .claude/posture-policy.md ] && echo pass || echo fail",
+    "description": "YOUR POLICY: agentops/posture-policy.md exists — the module ships a written posture policy, not just an understanding of one",
+    "command": "[ -f agentops/posture-policy.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m2-posture-policy-covers-modes",
     "description": "YOUR POLICY: the policy names the postures it assigns — plan, acceptEdits and auto all appear, so each task class resolves to a concrete mode rather than a vague trust level",
-    "command": "F=.claude/posture-policy.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qi 'plan' \"$F\" && grep -qi 'acceptEdits' \"$F\" && grep -qi 'auto' \"$F\" && echo pass || echo fail",
+    "command": "F=agentops/posture-policy.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qi 'plan' \"$F\" && grep -qi 'acceptEdits' \"$F\" && grep -qi 'auto' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m2-posture-policy-states-deny-overrides",
     "description": "YOUR POLICY: the policy records that deny rules hold regardless of posture — the Step 3 result written down, so nobody later reads deny as a preference rather than an override",
-    "command": "F=.claude/posture-policy.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qi 'deny' \"$F\" && grep -qiE 'regardless|override|beats|always|cannot be' \"$F\" && echo pass || echo fail",
+    "command": "F=agentops/posture-policy.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qi 'deny' \"$F\" && grep -qiE 'regardless|override|beats|always|cannot be' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   }
 ]
