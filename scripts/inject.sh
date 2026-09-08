@@ -10,7 +10,7 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-SCENARIOS="retry-storm failed-rollout expensive-plan stale-docs wrong-target normal"
+SCENARIOS="retry-storm readiness-drift failed-rollout expensive-plan stale-docs wrong-target normal"
 
 usage() {
   echo "Usage: $0 <scenario>"
@@ -18,7 +18,8 @@ usage() {
   echo "Apply a fault injection scenario."
   echo ""
   echo "Scenarios:"
-  echo "  retry-storm      High retries + inventory latency/errors"
+  echo "  retry-storm      Inventory latency + errors, so orders-api burns its retry budget"
+  echo "  readiness-drift  orders-api live but NOT READY (dependency check 404s); inventory-api healthy"
   echo "  failed-rollout   Broken readiness probe path"
   echo "  expensive-plan   Swap plan fixture to oversize"
   echo "  stale-docs       Replace runbook with stale version"
@@ -47,7 +48,7 @@ case "$SCENARIO" in
     # Restart orders-api with new env
     docker compose --profile core stop orders-api 2>/dev/null || true
     RETRY_COUNT=10 TIMEOUT_MS=30000 docker compose --profile core up -d orders-api 2>/dev/null || true
-    echo -e "${GREEN}==> retry-storm active. Orders-api: 10 retries, 30s timeout. Inventory-api: 5s latency, 30% errors.${NC}"
+    echo -e "${GREEN}==> retry-storm active. Inventory-api: 5s latency, 30% errors — orders-api exhausts its retry budget against a slow upstream.${NC}"
     ;;
 
   failed-rollout)
@@ -56,6 +57,26 @@ case "$SCENARIO" in
     # For Docker Compose context, we can simulate by changing the readiness check
     echo -e "${GREEN}==> failed-rollout scenario references Helm chart defects (readiness probe /health).${NC}"
     echo "   The orders-api Helm chart already has this defect in values.yaml."
+    ;;
+
+  readiness-drift)
+    # Reproduces the signature Module 1 teaches — orders-api LIVE but NOT READY
+    # because its dependency check points at an endpoint inventory-api does not
+    # serve, while inventory-api itself is perfectly healthy.
+    #
+    # Modules 2, 3, 6 and 7 need that state as ground truth. They must NOT get it
+    # by relying on Module 1's bug being unfixed: Module 1 repairs it and merges to
+    # main, so any module that assumes the bug is still there is reading a moving
+    # target. Injecting it deliberately makes the state reproducible at any point
+    # in the course, before or after that repair.
+    echo -e "${YELLOW}==> Injecting readiness-drift scenario...${NC}"
+    docker compose --profile core stop orders-api >/dev/null 2>&1 || true
+    INVENTORY_API_URL="http://inventory-api:8081/v2" \
+      docker compose --profile core up -d orders-api >/dev/null 2>&1 || true
+    echo -e "${GREEN}==> readiness-drift active.${NC}"
+    echo "   orders-api dependency check -> http://inventory-api:8081/v2 (404s)."
+    echo "   orders-api /healthz stays 200; /readyz reports inventory_api: false."
+    echo "   inventory-api is untouched and remains healthy — that asymmetry is the lesson."
     ;;
 
   expensive-plan)

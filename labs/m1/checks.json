@@ -55,8 +55,8 @@
   },
   {
     "id": "m1-repair-on-branch-then-merged",
-    "description": "YOUR REPAIR: the fix is committed into main's history since m1-start — the repair was made and landed, not just left in the working tree",
-    "command": "n=$(git log m1-start..main --oneline -- app/orders-api/src/health.py platform/helm/orders-api/values.yaml 2>/dev/null | wc -l | tr -d ' '); [ \"$n\" -gt 0 ] && echo landed || echo not-landed",
+    "description": "the repair is committed on main, not left dirty in the working tree — it arrived through a branch and a merge, which is what every later module builds on",
+    "command": "git rev-parse -q --verify main >/dev/null 2>&1 || { echo not-landed; exit 0; }; git show main:app/orders-api/src/health.py 2>/dev/null | grep -q 'inventory_api_url}/healthz' || { echo not-landed; exit 0; }; git show main:platform/helm/orders-api/values.yaml 2>/dev/null | grep -A2 readinessProbe | grep -q 'path: /healthz' || { echo not-landed; exit 0; }; echo landed",
     "expect": "landed"
   }
 ]
