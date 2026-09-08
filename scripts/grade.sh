@@ -467,6 +467,42 @@ case "$MODULE" in
     fi
     ;;
 
+  m16)
+    echo "Checking: MLOps & LLMOps — the gateway routing regression and its gates"
+    echo ""
+
+    CHECKS="$REPO_ROOT/labs/m16/checks.json"
+    if [[ ! -f "$CHECKS" ]]; then
+      check "labs/m16/checks.json present" "false"
+    else
+      while IFS= read -r row; do
+        desc="$(echo "$row" | jq -r '.description')"
+        cmd="$(echo "$row" | jq -r '.command')"
+        exp="$(echo "$row" | jq -r '.expect')"
+        got="$(cd "$REPO_ROOT" && bash -c "$cmd" 2>/dev/null || true)"
+        check "$desc" "$([[ "$got" == "$exp" ]] && echo true || echo false)"
+      done < <(jq -c '.[]' "$CHECKS")
+    fi
+    ;;
+
+  m16-deep-dive)
+    echo "Checking: Deep Dive — the mlops-engineer role and the cost of reviewing LLM routes"
+    echo ""
+
+    CHECKS="$REPO_ROOT/labs/m16/deep-dive.checks.json"
+    if [[ ! -f "$CHECKS" ]]; then
+      check "labs/m16/deep-dive.checks.json present" "false"
+    else
+      while IFS= read -r row; do
+        desc="$(echo "$row" | jq -r '.description')"
+        cmd="$(echo "$row" | jq -r '.command')"
+        exp="$(echo "$row" | jq -r '.expect')"
+        got="$(cd "$REPO_ROOT" && bash -c "$cmd" 2>/dev/null || true)"
+        check "$desc" "$([[ "$got" == "$exp" ]] && echo true || echo false)"
+      done < <(jq -c '.[]' "$CHECKS")
+    fi
+    ;;
+
   m17)
     echo "Checking: Reliable Automation, Events & Always-On Patterns — event-envelope validation and the automation reliability contract (correlation ID, dedup, idempotency, timeout, retry budget, cancellation, read-only safety)"
     echo ""

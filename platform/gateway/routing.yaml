@@ -30,11 +30,8 @@ defaults:
   timeout_ms: 8000        # gateway-side ceiling per request
 
 routes:
-    # DELIBERATE BUG (M16): support was 'fast' in v2. This route flip sends the
-    # entire high-volume support workload to 'deep' — slower and costlier. The
-    # incident is diagnosing and reverting this line through the gates.
   support:
-    model: deep           # <- REGRESSED. Baseline (v2) had 'fast'.
+    model: deep
     max_tokens: 512
     rate_limit:
       rpm: 600            # requests/min for the whole support class
