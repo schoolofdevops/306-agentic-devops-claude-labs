@@ -38,7 +38,7 @@
   {
     "id": "m13-pipeline-analyze-no-mutation",
     "description": "LEAST PRIVILEGE: the pipeline analyzer contains no cluster/infra write command — the agent in CI analyzes, it never applies (no kubectl apply / helm upgrade / terraform apply / docker push)",
-    "command": "! grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch)|helm[[:space:]]+(upgrade|install)|terraform[[:space:]]+apply|docker[[:space:]]+push)' scripts/pipeline-analyze.sh && echo pass || echo fail",
+    "command": "! sed -E 's/^[[:space:]]*#.*$//' scripts/pipeline-analyze.sh | grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch)|helm[[:space:]]+(upgrade|install)|terraform[[:space:]]+apply|docker[[:space:]]+push)' && echo pass || echo fail",
     "expect": "pass"
   },
   {
@@ -100,5 +100,35 @@
     "description": "CANARY: an unhealthy canary (SLO breach and/or replicas not Ready) yields verdict=rollback — the signal to not promote",
     "command": "bash scripts/canary-verify.sh fixtures/canary/canary-unhealthy.json --field verdict 2>/dev/null",
     "expect": "rollback"
+  },
+  {
+    "id": "m13-ci-gate-shipped",
+    "description": "YOUR GATE: scripts/ci-release-gate.sh exists and is executable — the release gate runs without you, which is the difference between a gate and a habit",
+    "command": "[ -x scripts/ci-release-gate.sh ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-ci-gate-blocks-candidate",
+    "description": "YOUR GATE: it exits non-zero on the v1.2.0 candidate — a gate that prints failures and exits 0 is a log line, not a gate",
+    "command": "[ -x scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; bash scripts/ci-release-gate.sh --values fixtures/release/candidate-values.yaml >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-ci-gate-approves-main",
+    "description": "YOUR GATE: it exits 0 against the repaired chart on main — it blocks on evidence, not on everything",
+    "command": "[ -x scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; bash scripts/ci-release-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-ci-gate-fails-closed-on-missing-candidate",
+    "description": "YOUR GATE: a candidate file it cannot read BLOCKS rather than falling back to main — the dangerous failure of a gate is approving a release it never examined",
+    "command": "[ -x scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; bash scripts/ci-release-gate.sh --values fixtures/release/does-not-exist.yaml >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-ci-gate-never-mutates",
+    "description": "YOUR GATE: the stage carries no write command — the agent in CI analyses, it never applies",
+    "command": "[ -f scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; ! sed -E 's/^[[:space:]]*#.*$//' scripts/ci-release-gate.sh | grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch)|helm[[:space:]]+(upgrade|install)|terraform[[:space:]]+apply|docker[[:space:]]+push)' && echo pass || echo fail",
+    "expect": "pass"
   }
 ]
