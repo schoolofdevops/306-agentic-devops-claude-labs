@@ -82,5 +82,17 @@
     "description": "env-check permits a read in dev when the declared environment matches the effective context",
     "command": "KUBE_CONTEXT=dev-cluster scripts/env-check.sh dev read >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m8-hook-wired-pretooluse",
+    "description": "THE HOOK IS LIVE: .claude/settings.json registers change-gate.sh as a PreToolUse hook on Bash — the script is a floor under every command, not something you pipe JSON at by hand",
+    "command": "jq -e '.hooks.PreToolUse[]? | select(.matcher==\"Bash\") | .hooks[]? | select(.command|test(\"change-gate\"))' .claude/settings.json >/dev/null 2>&1 && echo wired || echo unwired",
+    "expect": "wired"
+  },
+  {
+    "id": "m8-gate-holds-without-prompts",
+    "description": "ENFORCEMENT, NOT INTENT: the gate denies a production apply on its own — the refusal does not depend on a permission prompt being shown, which is why bypass mode cannot get past it",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod apply -auto-approve\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo denied || echo allowed",
+    "expect": "denied"
   }
 ]
