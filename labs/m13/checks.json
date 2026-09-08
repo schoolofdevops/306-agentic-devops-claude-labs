@@ -43,15 +43,21 @@
   },
   {
     "id": "m13-pipeline-blocks-bad-release",
-    "description": "GATE: pipeline-analyze BLOCKS the current release candidate — the chart's readiness probe (/health) is not a route the app serves, caught from executable evidence",
-    "command": "bash scripts/pipeline-analyze.sh --field verdict 2>/dev/null",
+    "description": "GATE: pipeline-analyze BLOCKS the v1.2.0 release candidate — the candidate's readiness probe (/health) is not a route the app serves, caught from executable evidence",
+    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo missing-candidate; exit 0; }; bash scripts/pipeline-analyze.sh --values fixtures/release/candidate-values.yaml --field verdict 2>/dev/null",
     "expect": "block"
   },
   {
     "id": "m13-pipeline-blocker-readiness",
     "description": "GATE EVIDENCE: the block reason names the readiness mismatch — the probe path is checked against the routes the app ACTUALLY serves, not a doc claim",
-    "command": "bash scripts/pipeline-analyze.sh --field blockers 2>/dev/null | grep -Eq 'readiness: probe path /health is not a route the app serves' && echo pass || echo fail",
+    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo fail; exit 0; }; bash scripts/pipeline-analyze.sh --values fixtures/release/candidate-values.yaml --field blockers 2>/dev/null | grep -Eq 'readiness: probe path /health is not a route the app serves' && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m13-pipeline-approves-repaired-main",
+    "description": "GATE IS NOT A RUBBER STAMP: the same analyzer run against the repaired chart on main returns approve — the gate blocks the candidate on evidence, not because it blocks everything",
+    "command": "bash scripts/pipeline-analyze.sh --field verdict 2>/dev/null",
+    "expect": "approve"
   },
   {
     "id": "m13-sod-reviewer-cannot-edit",

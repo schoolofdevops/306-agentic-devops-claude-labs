@@ -12,9 +12,21 @@
     "expect": "pass"
   },
   {
+    "id": "m12-container-runs-nonroot",
+    "description": "CONTAINER REPAIR: the Dockerfile switches to a non-root USER before CMD — the review finding is fixed in the image, not just noted in a report",
+    "command": "[ -f app/orders-api/Dockerfile ] || { echo fail; exit 0; }; grep -Eq '^USER +[a-z_][a-z0-9_-]*' app/orders-api/Dockerfile && ! grep -Eq '^USER +(root|0) *$' app/orders-api/Dockerfile && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-container-dockerignore-authored",
+    "description": "CONTAINER REPAIR: app/orders-api/.dockerignore exists and excludes VCS metadata and local env files — the build context can no longer sweep a .git dir or a .env into a layer",
+    "command": "[ -f app/orders-api/.dockerignore ] || { echo fail; exit 0; }; grep -Eq '^\\.git' app/orders-api/.dockerignore && grep -Eq '^\\.env' app/orders-api/.dockerignore && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
     "id": "m12-render-probe-path-visible",
     "description": "RENDER REVIEW: helm template surfaces the readiness probe path as a concrete string in the rendered manifest (review the output, not the template)",
-    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /health' && echo pass || echo fail",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /[a-z]' && echo pass || echo fail",
     "expect": "pass"
   },
   {
@@ -24,8 +36,14 @@
     "expect": "pass"
   },
   {
+    "id": "m12-rollout-has-serving-floor",
+    "description": "ROLLOUT REPAIR: the rendered maxUnavailable is no longer 100% — a rolling update must leave a serving floor instead of taking every pod down at once",
+    "command": "v=$(helm template orders-api platform/helm/orders-api 2>/dev/null | awk '/maxUnavailable:/{print $2; exit}' | tr -d '\"'); [ -n \"$v\" ] || { echo fail; exit 0; }; [ \"$v\" != \"100%\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
     "id": "m12-chart-lints-clean",
-    "description": "RENDER REVIEW: the chart lints clean (0 failed) — a well-formed chart can still carry the two defects, which is why lint is not the review",
+    "description": "RENDER REVIEW: the chart lints clean (0 failed) — a well-formed chart can still carry defects, which is why lint is not the review",
     "command": "helm lint platform/helm/orders-api 2>/dev/null | grep -Eq '0 chart\\(s\\) failed' && echo pass || echo fail",
     "expect": "pass"
   },
@@ -69,6 +87,12 @@
     "id": "m12-gitops-propose-refuses-cluster-write",
     "description": "GITOPS: gitops-propose contains no cluster-write command (no kubectl apply / helm upgrade) — it writes to Git and stops, never to a cluster",
     "command": "! grep -Eq '(kubectl[[:space:]]+(apply|delete|create|patch|scale)|helm[[:space:]]+(upgrade|install))' scripts/gitops-propose.sh && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-repairs-shipped-to-main",
+    "description": "GOLDEN PATH: all three repairs are committed on main, not left dirty in the working tree — the agent proposed, a human merged, and the reconciler's source of truth now carries the fix",
+    "command": "git rev-parse -q --verify main >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:app/orders-api/Dockerfile 2>/dev/null | grep -Eq '^USER +[a-z_]' || { echo fail; exit 0; }; git show main:app/orders-api/.dockerignore >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:platform/helm/orders-api/values.yaml 2>/dev/null | grep -Eq 'maxUnavailable: *\"?100%' && { echo fail; exit 0; }; echo pass",
     "expect": "pass"
   }
 ]

@@ -20,8 +20,13 @@
 # The verdict is fail-closed on the strongest objection: any single "block" makes
 # the release "block". A release is "approve" only when every gate clears.
 #
+# The candidate is what gets analysed, NOT whatever happens to be on `main`.
+# Pass `--values <file>` to render the chart with a proposed values overlay
+# (see fixtures/release/candidate-values.yaml). Without it the analyser gates
+# the committed chart, which on a repaired `main` should come back "approve".
+#
 # Usage:  pipeline-analyze.sh [--plan <plan.json>] [--chart <chart-dir>]
-#             [--field verdict|blockers|json]
+#             [--values <values.yaml>] [--field verdict|blockers|json]
 #         defaults: --chart platform/helm/orders-api, --field json
 #
 # Exit 0  -> verdict emitted (verdict may be "block" — that is a successful GATE,
@@ -36,12 +41,13 @@ cd "$REPO_ROOT"
 
 fail_closed() { echo "pipeline-analyze: FAIL-CLOSED: $1" >&2; exit 1; }
 
-PLAN=""; CHART="platform/helm/orders-api"; FIELD="json"
+PLAN=""; CHART="platform/helm/orders-api"; FIELD="json"; VALUES=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --plan)  PLAN="${2:-}"; shift 2 ;;
-    --chart) CHART="${2:-}"; shift 2 ;;
-    --field) FIELD="${2:-}"; shift 2 ;;
+    --plan)   PLAN="${2:-}"; shift 2 ;;
+    --chart)  CHART="${2:-}"; shift 2 ;;
+    --values) VALUES="${2:-}"; shift 2 ;;
+    --field)  FIELD="${2:-}"; shift 2 ;;
     -*) fail_closed "unknown arg '$1'" ;;
     *)  fail_closed "unexpected positional arg '$1'" ;;
   esac
@@ -51,19 +57,29 @@ command -v jq   >/dev/null 2>&1 || fail_closed "jq is required"
 command -v helm >/dev/null 2>&1 || fail_closed "helm is required"
 [ -d "$CHART" ] || fail_closed "no such chart dir: $CHART"
 
+# The candidate overlay, if one was named. Fail-closed on a missing file: a gate
+# that silently analysed `main` instead of the candidate would report on the
+# wrong artifact, which is worse than not reporting at all.
+HELM_VALUES=()
+if [ -n "$VALUES" ]; then
+  [ -f "$VALUES" ] || fail_closed "no such values file: $VALUES"
+  HELM_VALUES=(-f "$VALUES")
+fi
+render() { helm template orders-api "$CHART" ${HELM_VALUES[@]+"${HELM_VALUES[@]}"} "$@"; }
+
 # --- gate 1: app-vs-desired-state readiness (executable evidence) -------------
 # The Helm readiness probe path must be a path the orders-api app actually serves.
 # The app's real routes are the ground truth; the probe path is a claim about them.
 APP_ROUTES="$(grep -oE '@router\.get\("(/[^"]*)"\)' app/orders-api/src/health.py \
                 | sed -E 's/.*"(.*)".*/\1/' | jq -R . | jq -s . 2>/dev/null || echo '[]')"
-PROBE_PATH="$(helm template orders-api "$CHART" 2>/dev/null \
+PROBE_PATH="$(render 2>/dev/null \
                 | awk '/readinessProbe:/{f=1} f&&/path:/{print $2; exit}')"
 READINESS_OK="$(jq -n --argjson routes "$APP_ROUTES" --arg p "$PROBE_PATH" \
                   '($routes | index($p)) != null')"
 
 # --- gate 2: helm render + rollout floor --------------------------------------
-if helm template orders-api "$CHART" >/dev/null 2>&1; then RENDER_OK=true; else RENDER_OK=false; fi
-MAXUNAVAIL="$(helm template orders-api "$CHART" 2>/dev/null \
+if render >/dev/null 2>&1; then RENDER_OK=true; else RENDER_OK=false; fi
+MAXUNAVAIL="$(render 2>/dev/null \
                 | awk '/maxUnavailable:/{print $2; exit}' | tr -d '"')"
 # A rollout with maxUnavailable 100% has no serving floor — block.
 STRATEGY_OK="$([ "$MAXUNAVAIL" != "100%" ] && echo true || echo false)"
@@ -85,13 +101,15 @@ REPORT="$(jq -n \
   --argjson render_ok "$RENDER_OK" \
   --argjson strategy_ok "$STRATEGY_OK" \
   --arg     max_unavailable "${MAXUNAVAIL:-unknown}" \
-  --arg     tf_verdict "$TF_VERDICT" '
+  --arg     tf_verdict "$TF_VERDICT" \
+  --arg     candidate "${VALUES:-main (committed chart values)}" '
   ( [ if $readiness_ok | not then "readiness: probe path " + $probe_path + " is not a route the app serves (" + ($app_routes | join(", ")) + ")" else empty end ]
   + [ if $render_ok   | not then "render: chart does not render" else empty end ]
   + [ if $strategy_ok | not then "rollout: maxUnavailable " + $max_unavailable + " leaves no serving floor" else empty end ]
   + [ if $tf_verdict == "block" then "terraform: stateful replacement (no clean rollback)" else empty end ]
   ) as $blockers
   | {
+      candidate: $candidate,
       gates: {
         readiness:  { ok: $readiness_ok, probe_path: $probe_path, app_routes: $app_routes },
         render:     { ok: $render_ok, max_unavailable: $max_unavailable },

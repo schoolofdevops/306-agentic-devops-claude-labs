@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hypothesis packet",
+  "description": "One investigator's independent finding on one dimension of an incident. The contract exists to make INDEPENDENCE auditable: a packet must cite its own evidence in `sources`, and must declare in `derived_from` if it took its conclusion from a peer instead. synthesize-hypotheses.sh reads these fields to tell real corroboration from consensus theater.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dimension", "root_cause", "status", "confidence", "sources", "derived_from"],
+  "properties": {
+    "dimension": {
+      "type": "string",
+      "description": "The single dimension this investigator owns. It reasons over this dimension's evidence and no other.",
+      "enum": ["application-retry", "platform-resource", "recent-change"]
+    },
+    "root_cause": {
+      "type": ["string", "null"],
+      "description": "The cause this dimension's evidence supports, as one of a fixed set of labels. It is an ENUM and not free text on purpose: the synthesizer decides agreement by comparing these values, so two investigators who genuinely agree must emit the same string. Free-text causes make real agreement undetectable — every fan-out reads as a disagreement because no two agents phrase a cause identically. Put the prose in `sources`. Null when status is inconclusive.",
+      "enum": [
+        "retry-storm",
+        "retry-amplification",
+        "upstream-fault",
+        "bad-deploy",
+        "resource-exhaustion",
+        "config-drift",
+        null
+      ]
+    },
+    "status": {
+      "type": "string",
+      "description": "Whether this dimension's own evidence supports, refutes, or cannot settle the hypothesis.",
+      "enum": ["supported", "refuted", "inconclusive"]
+    },
+    "confidence": {
+      "type": "string",
+      "description": "How strongly this dimension's evidence carries the conclusion. Must be justified by sources, not by how plausible the answer feels.",
+      "enum": ["low", "medium", "high"]
+    },
+    "sources": {
+      "type": "array",
+      "description": "The investigator's OWN evidence — commands it ran, files and lines it read. At least one is required; a packet with no sources is an opinion, and the synthesizer rejects it.",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "derived_from": {
+      "type": ["string", "null"],
+      "description": "Null when this conclusion came from this dimension's own evidence. Set to another dimension's name if the conclusion was taken from that peer — which the synthesizer rejects as consensus theater. Declaring it honestly is the point of the field.",
+      "enum": ["application-retry", "platform-resource", "recent-change", null]
+    },
+    "missing": {
+      "type": "array",
+      "description": "Evidence this investigator could not obtain, named so the synthesis can loop instead of concluding on partial data.",
+      "items": { "type": "string" }
+    }
+  }
+}

@@ -106,5 +106,41 @@
     "description": "FAIL-CLOSED: a concurrency cap below 1 is rejected (exit 1) — an orchestration with zero workers is a misconfiguration, not a valid run",
     "command": "scripts/audit-orchestrate.sh --max-parallel 0 >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m10-fanout-produced-three-packets",
+    "description": "YOUR FAN-OUT: three hypothesis packets exist under agentops/hypotheses/ — one per dimension, produced by the investigators rather than hand-written into the lab",
+    "command": "[ -d agentops/hypotheses ] || { echo fail; exit 0; }; n=$(ls agentops/hypotheses/*.json 2>/dev/null | wc -l | tr -d ' '); [ \"$n\" -ge 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-fanout-packets-cover-three-dimensions",
+    "description": "YOUR FAN-OUT: the packets cover all three dimensions exactly — application-retry, platform-resource and recent-change — so the fan-out partitioned the incident instead of investigating one thing three times",
+    "command": "ls agentops/hypotheses/*.json >/dev/null 2>&1 || { echo fail; exit 0; }; d=$(jq -r '.dimension' agentops/hypotheses/*.json 2>/dev/null | sort -u | tr '\\n' ',' ); [ \"$d\" = \"application-retry,platform-resource,recent-change,\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-fanout-packets-are-independent",
+    "description": "INDEPENDENCE: every packet your investigators produced carries its own sources and a null derived_from — the agreement, if any, was reached independently rather than anchored on a peer",
+    "command": "ls agentops/hypotheses/*.json >/dev/null 2>&1 || { echo fail; exit 0; }; bad=$(jq -s '[ .[] | select((.sources|length) < 1 or .derived_from != null) ] | length' agentops/hypotheses/*.json 2>/dev/null); [ \"$bad\" = \"0\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-fanout-root-causes-are-contract-labels",
+    "description": "CONTRACT: each packet's root_cause is one of the schema's enum labels (or null) — agreement is decided by comparing these values, so a free-text cause would make real convergence undetectable",
+    "command": "ls agentops/hypotheses/*.json >/dev/null 2>&1 || { echo fail; exit 0; }; bad=$(jq -s '[ .[] | select(.root_cause != null and ((.root_cause|IN(\"retry-storm\",\"retry-amplification\",\"upstream-fault\",\"bad-deploy\",\"resource-exhaustion\",\"config-drift\")) | not)) ] | length' agentops/hypotheses/*.json 2>/dev/null); [ \"$bad\" = \"0\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-fanout-synthesizes-without-theater",
+    "description": "THE JOIN: the synthesizer accepts your real packets — it does not reject them as consensus theater or as an unsourced hypothesis, which is the precondition for any verdict it returns being worth reading",
+    "command": "ls agentops/hypotheses/*.json >/dev/null 2>&1 || { echo fail; exit 0; }; jq -s '.' agentops/hypotheses/*.json 2>/dev/null | bash scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m10-synthesizer-followups-do-not-block",
+    "description": "CONTROL DESIGN: a settled dimension that names a gap yields a verdict with non-blocking follow_ups — a guard that blocked on every gap would be unsatisfiable against real investigators, who always name what they could not see",
+    "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"a\"],\"derived_from\":null,\"missing\":[\"prometheus history not retained\"]},{\"dimension\":\"recent-change\",\"root_cause\":\"retry-storm\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"b\"],\"derived_from\":null}]' | bash scripts/synthesize-hypotheses.sh 2>/dev/null | grep -Eq '^verdict=corroborated' && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

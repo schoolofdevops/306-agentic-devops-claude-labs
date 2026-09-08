@@ -24,10 +24,14 @@
 #      surfaces the disagreement instead of hiding it — a split is signal, not a
 #      problem to average away.
 #
-#   3. MISSING EVIDENCE — if any packet reports `status: "inconclusive"` or names
-#      an unchecked dimension in `missing`, the synthesis loops: it emits
-#      `verdict: "need-more-evidence"` naming the gap, rather than declaring a
-#      winner on partial data.
+#   3. MISSING EVIDENCE — a gap blocks only when the dimension naming it has not
+#      settled its own question. A packet with `status: "inconclusive"` blocks:
+#      the synthesis emits `verdict: "need-more-evidence"` naming the gap rather
+#      than declaring a winner on partial data. A packet that is `supported` or
+#      `refuted` HAS settled its dimension, so its `missing` entries are reported
+#      as non-blocking `follow_ups`. (Blocking on every `missing` entry made the
+#      guard unsatisfiable against real investigators, which always name what they
+#      could not see — see the note on GUARD 3 below.)
 #
 # Packet shape (each element of the input array):
 #   {
@@ -70,11 +74,22 @@ unsourced="$(echo "$IN" | jq -r '
 ')"
 [ -z "$unsourced" ] || theater "packet(s) [$unsourced] carry no sources of their own — an unsourced hypothesis cannot corroborate anything."
 
-# GUARD 3 — missing evidence loop. If any packet is inconclusive or names a gap,
-# do not declare a winner: name the gap and ask for another pass.
+# GUARD 3 — missing evidence loop. A gap blocks the synthesis only when the
+# dimension that names it has NOT settled its own question.
+#
+# The earlier version of this guard blocked on any `missing` entry from any
+# packet. That is wrong, and real fan-outs proved it: an honest investigator
+# that has confidently settled its dimension still lists what it could not see
+# ("no Prometheus history", "out of my dimension"), so the synthesis withheld
+# forever and `corroborated` was unreachable from real agents. A control that
+# only passes on hand-written packets is not a control.
+#
+# The rule now: a packet with status `inconclusive` has not settled its
+# dimension, so its gaps BLOCK. A packet that is `supported` or `refuted` has
+# settled it; its `missing` entries are recorded as non-blocking follow-ups.
 gap="$(echo "$IN" | jq -r '
   [ .[] | select(.status=="inconclusive") | .dimension ]
-  + [ .[] | (.missing // [])[] ]
+  + [ .[] | select(.status=="inconclusive") | (.missing // [])[] ]
   | unique | join(", ")
 ')"
 if [ -n "$gap" ]; then
@@ -83,6 +98,11 @@ if [ -n "$gap" ]; then
   echo "detail=synthesis withheld — a hypothesis is inconclusive or a dimension is unchecked; loop before concluding."
   exit 0
 fi
+
+# Follow-ups: gaps named by dimensions that DID settle. Reported, never blocking.
+followups="$(echo "$IN" | jq -r '
+  [ .[] | select(.status!="inconclusive") | (.missing // [])[] ] | unique | join("; ")
+')"
 
 # GUARD 2 — agreement vs disagreement over root_cause among SUPPORTED packets.
 supported="$(echo "$IN" | jq -c '[ .[] | select(.status=="supported") ]')"
@@ -100,6 +120,7 @@ if [ "$causes" -eq 1 ]; then
   echo "verdict=corroborated"
   echo "root_cause=$top_cause"
   echo "detail=$scount independent dimension(s) converged on the same root cause from their OWN evidence — real corroboration, not an echo."
+  [ -z "$followups" ] || echo "follow_ups=$followups"
   exit 0
 fi
 
