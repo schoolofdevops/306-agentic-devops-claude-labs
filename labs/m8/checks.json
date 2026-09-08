@@ -94,5 +94,17 @@
     "description": "ENFORCEMENT, NOT INTENT: the gate denies a production apply on its own — the refusal does not depend on a permission prompt being shown, which is why bypass mode cannot get past it",
     "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod apply -auto-approve\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo denied || echo allowed",
     "expect": "denied"
+  },
+  {
+    "id": "m8-enforcement-demo-recorded",
+    "description": "YOUR DEMO: agentops/policy/enforcement-demo.md exists — the prompts-off enforcement result is recorded, not left in a closed terminal",
+    "command": "[ -f agentops/policy/enforcement-demo.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-enforcement-demo-names-pretooluse",
+    "description": "YOUR DEMO: the record names the PreToolUse hook as what stopped the command — enforcement fires before the permission check, which is why skipping prompts did not help",
+    "command": "F=agentops/policy/enforcement-demo.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'PreToolUse' \"$F\" && grep -qiE 'change-gate|exit 2|deny' \"$F\" && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

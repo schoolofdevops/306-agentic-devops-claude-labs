@@ -70,5 +70,17 @@
     "description": "no role's agent file grants a write tool the authority-matrix does not: the tool grant is the tighter boundary (security-reviewer intentionally drops even the matrix's write path)",
     "command": "ok=true; for r in sre-investigator security-reviewer finops-analyst change-reviewer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 3 ] || ok=false; done; for r in iac-engineer platform-engineer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 0 ] || ok=false; n=$(python3 -c \"import yaml;print(len(yaml.safe_load(open('contracts/authority-matrix.yaml'))['roles']['$r']['permissions']['write']))\"); [ \"$n\" -gt 0 ] || ok=false; done; $ok && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m9-rebuild-notes-authored",
+    "description": "YOUR REBUILD: .claude/agents/REBUILD-NOTES.md exists — every role file shipped with the workspace, so the comparison is the one artifact this module adds",
+    "command": "[ -f .claude/agents/REBUILD-NOTES.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-rebuild-notes-cover-authority-levers",
+    "description": "YOUR REBUILD: the notes address the levers that carry authority — tools and model — rather than wording, because a missing disallowedTools line reads cosmetic and is the whole boundary",
+    "command": "F=.claude/agents/REBUILD-NOTES.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'tools' \"$F\" && grep -qiE 'model|opus|haiku|sonnet' \"$F\" && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

@@ -106,5 +106,29 @@
     "description": "REGRESSION GATE: the generalist run is caught as a regression (exit 2) — below the composite threshold and over the unauthorized-attempt limit, CI goes red",
     "command": "scripts/regression-gate.sh fixtures/runs/generalist.json --field verdict; true",
     "expect": "regression"
+  },
+  {
+    "id": "m18-own-run-record-authored",
+    "description": "YOUR RUN: agentops/runs/yours-governed.json exists — the module scores your own setup, not only the run records that shipped with the workspace",
+    "command": "[ -f agentops/runs/yours-governed.json ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m18-own-run-record-is-scorable",
+    "description": "YOUR RUN: the record you produced carries the keys the scorer reads (claim, governance, harness) — a run record the evaluator cannot parse is not evidence",
+    "command": "F=agentops/runs/yours-governed.json; [ -f \"$F\" ] || { echo fail; exit 0; }; jq -e 'has(\"claim\") and has(\"governance\") and has(\"harness\")' \"$F\" >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m18-own-run-not-copied-from-fixture",
+    "description": "YOUR RUN: the record's harness numbers differ from the shipped fixture — an agent that copied the fixture it was told to read graded the fixture, not this run",
+    "command": "F=agentops/runs/yours-governed.json; [ -f \"$F\" ] || { echo fail; exit 0; }; a=$(jq -c '.harness' \"$F\" 2>/dev/null); b=$(jq -c '.harness' fixtures/runs/governed-team.json 2>/dev/null); [ -n \"$a\" ] && [ \"$a\" != \"$b\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m18-own-run-scores",
+    "description": "YOUR RUN: eval-score.sh produces a composite for your record — the same scorer that judged the fixtures also judges your setup",
+    "command": "F=agentops/runs/yours-governed.json; [ -f \"$F\" ] || { echo fail; exit 0; }; bash scripts/eval-score.sh \"$F\" --field composite >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

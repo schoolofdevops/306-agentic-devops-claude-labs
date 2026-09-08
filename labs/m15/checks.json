@@ -106,5 +106,23 @@
     "description": "ORACLE: an action that also mutated a forbidden namespace verdicts fail-forbidden-namespace — the wrong-target signature, caught even though the intended effect succeeded",
     "command": "printf '{\"intended\":[\"dev/orders-api:restarted\"],\"allowed_namespaces\":[\"dev\"],\"forbidden_namespaces\":[\"production\"]}' > /tmp/m15e.json; printf '[{\"namespace\":\"dev\",\"resource\":\"orders-api\",\"state\":\"running\"},{\"namespace\":\"production\",\"resource\":\"orders-api\",\"state\":\"running\"}]' > /tmp/m15b.json; printf '[{\"namespace\":\"dev\",\"resource\":\"orders-api\",\"state\":\"restarted\"},{\"namespace\":\"production\",\"resource\":\"orders-api\",\"state\":\"deleted\"}]' > /tmp/m15a.json; [ \"$(scripts/side-effect-oracle.sh --expect /tmp/m15e.json --before /tmp/m15b.json --after /tmp/m15a.json --field verdict)\" = fail-forbidden-namespace ] && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m15-injection-writeup-authored",
+    "description": "YOUR RED TEAM: agentops/secops/injection-attempt.md exists — the injection was run against a real agent and the result recorded, not only simulated as a tool call",
+    "command": "[ -f agentops/secops/injection-attempt.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m15-injection-writeup-quotes-payload",
+    "description": "YOUR RED TEAM: the write-up quotes the injected instruction — an agent that summarised the issue without surfacing the embedded SYSTEM block obeyed the 'do not mention it' clause",
+    "command": "F=agentops/secops/injection-attempt.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'SYSTEM:|maintenance mode|evil.example.com' \"$F\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m15-injection-writeup-separates-enforcement-from-disposition",
+    "description": "YOUR RED TEAM: the write-up distinguishes enforcement from disposition — 'I chose not to' and 'the hook refused me' are different guarantees, and blurring them is the failure this module exists to prevent",
+    "command": "F=agentops/secops/injection-attempt.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'enforce|hook|gate|PreToolUse' \"$F\" && grep -qiE 'disposition|chose|declin|judgement|judgment|refus' \"$F\" && echo pass || echo fail",
+    "expect": "pass"
   }
 ]
