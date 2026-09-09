@@ -106,5 +106,23 @@
     "description": "YOUR DEMO: the record names the PreToolUse hook as what stopped the command — enforcement fires before the permission check, which is why skipping prompts did not help",
     "command": "F=agentops/policy/enforcement-demo.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'PreToolUse' \"$F\" && grep -qiE 'change-gate|exit 2|deny' \"$F\" && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m8-gate-denies-volume-destruction",
+    "description": "YOUR RULE: docker compose down -v is blocked (exit 2) — destroying the volume holding persistent data is irreversible",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker compose down -v\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-allows-bare-compose-down",
+    "description": "YOUR RULE IS NARROW: a bare docker compose down still passes (exit 0) — stopping the stack is routine and reversible",
+    "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker compose down\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m8-gate-cases-suite-green",
+    "description": "YOUR TEST: scripts/hooks/gate-cases.sh exists and every deny/allow case passes — the gate is tested, not asserted",
+    "command": "[ -f scripts/hooks/gate-cases.sh ] || { echo missing; exit 0; }; bash scripts/hooks/gate-cases.sh >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
   }
 ]
