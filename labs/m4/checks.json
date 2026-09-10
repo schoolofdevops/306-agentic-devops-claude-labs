@@ -28,5 +28,17 @@
     "description": "budget-check.sh flags a run over the token budget and exits non-zero",
     "command": "T=$(mktemp); printf '{\"resourceLogs\":[{\"scopeLogs\":[{\"logRecords\":[{\"body\":{\"stringValue\":\"claude_code.api_request\"},\"attributes\":[{\"key\":\"model\",\"value\":{\"stringValue\":\"claude-sonnet-5\"}},{\"key\":\"input_tokens\",\"value\":{\"intValue\":\"16000\"}},{\"key\":\"output_tokens\",\"value\":{\"intValue\":\"40\"}},{\"key\":\"cost_usd\",\"value\":{\"doubleValue\":0.11}},{\"key\":\"duration_ms\",\"value\":{\"intValue\":\"2000\"}}]}]}]}]}\\n' > \"$T\"; if ./agentops/budget-check.sh \"$T\" 1000 >/dev/null 2>&1; then rm -f \"$T\"; echo fail; else rm -f \"$T\"; echo pass; fi",
     "expect": "pass"
+  },
+  {
+    "id": "m4-ledger-accounts-for-cache",
+    "description": "YOUR FIX: the ledger counts cache_read and cache_creation tokens — a row that sums only input+output under-reports a real run by two orders of magnitude and inverts the model ranking",
+    "command": "T=$(mktemp); printf '{\"resourceLogs\":[{\"scopeLogs\":[{\"logRecords\":[{\"body\":{\"stringValue\":\"claude_code.api_request\"},\"attributes\":[{\"key\":\"model\",\"value\":{\"stringValue\":\"claude-sonnet-5\"}},{\"key\":\"input_tokens\",\"value\":{\"intValue\":\"10\"}},{\"key\":\"output_tokens\",\"value\":{\"intValue\":\"20\"}},{\"key\":\"cache_read_tokens\",\"value\":{\"intValue\":\"5000\"}},{\"key\":\"cache_creation_tokens\",\"value\":{\"intValue\":\"1000\"}},{\"key\":\"cost_usd\",\"value\":{\"doubleValue\":0.11}},{\"key\":\"duration_ms\",\"value\":{\"intValue\":\"2000\"}}]}]}]}]}\\n' > \"$T\"; python3 agentops/ledger.py \"$T\" cache | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r[\"total_tokens\"]==6030, r.get(\"total_tokens\")' >/dev/null 2>&1 && { rm -f \"$T\"; echo pass; } || { rm -f \"$T\"; echo fail; }",
+    "expect": "pass"
+  },
+  {
+    "id": "m4-budget-check-fails-closed",
+    "description": "YOUR FIX: budget-check.sh exits non-zero when it cannot evaluate — called with no arguments it must refuse, not report a pass a CI stage would read as within budget",
+    "command": "[ -x agentops/budget-check.sh ] || { echo fail; exit 0; }; if ./agentops/budget-check.sh >/dev/null 2>&1; then echo fail; else echo pass; fi",
+    "expect": "pass"
   }
 ]
