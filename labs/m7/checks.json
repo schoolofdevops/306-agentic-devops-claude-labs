@@ -12,9 +12,9 @@
     "expect": "pass"
   },
   {
-    "id": "m7-observer-lists-three-read-tools",
-    "description": "over stdio the server lists exactly get_health, get_info, get_readiness — the complete read-only surface, no write tool",
-    "command": "out=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==2) | .result.tools[].name' | sort | tr '\\n' ' '); [ \"$out\" = 'get_health get_info get_readiness ' ] && echo pass || echo fail",
+    "id": "m7-observer-lists-four-read-tools",
+    "description": "YOUR TOOL: the observer exposes exactly get_faults, get_health, get_info, get_readiness — four reads and still no write",
+    "command": "out=$(printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' | node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==2) | .result.tools[].name' | sort | tr '\\n' ' '); [ \"$out\" = 'get_faults get_health get_info get_readiness ' ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
@@ -40,5 +40,11 @@
     "description": "the shootout ledger captured all three approaches (cli, skill, mcp) — the comparison was actually run, not read about",
     "command": "L=labs/m7/shootout.jsonl; [ -f $L ] || { echo missing; exit 0; }; jq -e -s '([.[].approach] | unique | sort) == [\"cli\",\"mcp\",\"skill\"]' $L >/dev/null 2>&1 && echo complete || echo incomplete",
     "expect": "complete"
+  },
+  {
+    "id": "m7-observer-separates-observation-failure",
+    "description": "YOUR FIX: a tool result says whether the observation SUCCEEDED, so \"I could not see\" can never be read as \"what I saw is broken\" — forced by a 1ms timeout",
+    "command": "resp=$(NORTHSTAR_OBSERVER_TIMEOUT_MS=1 printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"get_readiness\",\"arguments\":{\"service\":\"orders-api\"}}}' | NORTHSTAR_OBSERVER_TIMEOUT_MS=1 node platform/mcp-servers/northstar-observer.js 2>/dev/null | jq -r 'select(.id==3) | .result.content[0].text'); echo \"$resp\" | jq -e '.observed == false and (.observation_error != null) and (has(\"http_status\") | not)' >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
   }
 ]
