@@ -74,7 +74,7 @@
   {
     "id": "m6-human-only-side-effecting-skill",
     "description": "a side-effecting skill (service-restart) exists and is marked human-only / not auto-invoked (invisible to automatic invocation)",
-    "command": "f=.claude/skills/service-restart/SKILL.md; [ -f \"$f\" ] && grep -Eqi 'human[- ]only|auto[-_ ]?invoke: *false|do not auto|manual( |-)invoc' \"$f\" && echo pass || echo fail",
+    "command": "f=.claude/skills/service-restart/SKILL.md; [ -f \"$f\" ] && grep -Eqi 'human[- ]only|disable-model-invocation: *true|do not auto|manual( |-)invoc' \"$f\" && echo pass || echo fail",
     "expect": "pass"
   },
   {

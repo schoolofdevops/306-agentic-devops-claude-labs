@@ -1,7 +1,7 @@
 ---
 name: service-restart
 description: Use ONLY when a human has decided a Northstar service must be restarted and explicitly invokes this skill. This skill has side effects (it restarts a running service). It is human-only — it must never be auto-invoked by relevance.
-auto-invoke: false
+disable-model-invocation: true
 ---
 
 # service-restart

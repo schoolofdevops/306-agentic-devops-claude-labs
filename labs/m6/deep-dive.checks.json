@@ -1,8 +1,8 @@
 [
   {
     "id": "m6dd-restart-marked-invisible",
-    "description": "service-restart declares auto-invoke: false AND states human-only — it is invisible to automatic invocation by design",
-    "command": "f=.claude/skills/service-restart/SKILL.md; command grep -q 'auto-invoke: *false' \"$f\" && command grep -qi 'human-only' \"$f\" && echo pass || echo fail",
+    "description": "service-restart declares disable-model-invocation: true AND states human-only — it is invisible to automatic invocation by design",
+    "command": "f=.claude/skills/service-restart/SKILL.md; command grep -q 'disable-model-invocation: *true' \"$f\" && command grep -qi 'human-only' \"$f\" && echo pass || echo fail",
     "expect": "pass"
   },
   {
