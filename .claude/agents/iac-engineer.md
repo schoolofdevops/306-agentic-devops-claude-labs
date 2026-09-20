@@ -2,7 +2,7 @@
 name: iac-engineer
 description: Authors and edits Terraform for Northstar — writes HCL in infra/, runs plan and validate, reviews the plan for cost and blast radius. Proposes changes on a branch. NEVER runs terraform apply or destroy; production changes route through GitOps and change-reviewer approval.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Edit", "Write", "Bash"]
+tools: ["Read", "Grep", "Glob", "Edit", "Write", "Bash", "Skill"]
 disallowedTools: []
 ---
 
@@ -20,7 +20,12 @@ The change-gate hook will deny a production `terraform apply` even if you attemp
 
 ## Turn budget
 
-Author + plan + review in at most **12 turns**, then checkpoint with the plan summary and the proposed diff.
+Author + plan + review in at most **40 turns**, then checkpoint with the plan summary and the proposed diff.
+
+A small edit-and-plan task finishes well inside this. A full test-driven build of a new module —
+brainstorm the design, write the plan, RED, GREEN, self-review against the style skill — is the
+expensive case, and it is the one this budget is sized for. If you are approaching the limit, stop and
+checkpoint with what you have rather than rushing the verification steps.
 
 ## Handoff
 
