@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-limit-test
+  labels:
+    app: resource-limit-test
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: resource-limit-test
+  template:
+    metadata:
+      labels:
+        app: resource-limit-test
+    spec:
+      containers:
+      - name: memory-hog
+        image: nginx:latest
+        resources:
+          requests:
+            memory: "10Gi"
+            cpu: "4000m"
+          limits:
+            memory: "20Gi"
+            cpu: "8000m"
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resource-limit-test-svc
+spec:
+  selector:
+    app: resource-limit-test
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer

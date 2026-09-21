@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashloop-test
+  labels:
+    app: crashloop-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crashloop-test
+  template:
+    metadata:
+      labels:
+        app: crashloop-test
+    spec:
+      containers:
+      - name: crash-app
+        image: busybox:latest
+        command: ["sh", "-c", "echo 'Starting app...'; sleep 5; exit 1"]
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "100m"
+          limits:
+            memory: "64Mi"
+            cpu: "200m"
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://missing-host:5432/db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crashloop-test-svc
+spec:
+  selector:
+    app: crashloop-test
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP

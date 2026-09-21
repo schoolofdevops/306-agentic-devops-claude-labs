@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagepull-test
+  labels:
+    app: imagepull-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: imagepull-test
+  template:
+    metadata:
+      labels:
+        app: imagepull-test
+    spec:
+      containers:
+      - name: web
+        image: nonexistent-registry.io/fake-app:v1.0.0
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imagepull-test-svc
+spec:
+  selector:
+    app: imagepull-test
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP

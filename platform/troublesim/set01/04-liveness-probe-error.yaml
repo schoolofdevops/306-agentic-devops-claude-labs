@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: liveness-probe-test
+  labels:
+    app: liveness-probe-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: liveness-probe-test
+  template:
+    metadata:
+      labels:
+        app: liveness-probe-test
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /nonexistent-health-endpoint
+            port: 9999
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 3
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: liveness-probe-test-svc
+spec:
+  selector:
+    app: liveness-probe-test
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

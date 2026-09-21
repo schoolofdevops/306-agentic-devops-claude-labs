@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-present
+data:
+  app.properties: |
+    server.port=8080
+    app.name=TestApp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: configmap-mount-test
+  labels:
+    app: configmap-mount-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: configmap-mount-test
+  template:
+    metadata:
+      labels:
+        app: configmap-mount-test
+    spec:
+      containers:
+      - name: app
+        image: busybox:latest
+        command: ["sh", "-c", "cat /config/app.properties && sleep 3600"]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /config
+        - name: missing-secret-volume
+          mountPath: /secrets
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "100m"
+          limits:
+            memory: "64Mi"
+            cpu: "200m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: app-config-present
+      - name: missing-secret-volume
+        secret:
+          secretName: missing-secret-does-not-exist
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: configmap-mount-test-svc
+spec:
+  selector:
+    app: configmap-mount-test
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
