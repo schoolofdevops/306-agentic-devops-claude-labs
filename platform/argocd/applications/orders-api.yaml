@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: file:///tmp/northstar-remote.git
+    repoURL: file:///gitops/northstar-remote.git
     targetRevision: HEAD
     path: platform/helm/orders-api
     helm:

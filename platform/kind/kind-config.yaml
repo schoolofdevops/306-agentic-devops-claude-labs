@@ -3,6 +3,15 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: northstar
 nodes:
   - role: control-plane
+    extraMounts:
+      # The local bare Git remote the reconciler syncs from. setup.sh substitutes
+      # the real host path for the placeholder before creating the cluster: the
+      # remote lives under $HOME because that is the directory Docker Desktop and
+      # Rancher Desktop share into their VM by default. /tmp is NOT shared — a
+      # mount from there silently produces an empty directory inside the node,
+      # and Argo CD reports "repository not found".
+      - hostPath: __GITOPS_REMOTE_HOSTPATH__
+        containerPath: /gitops/northstar-remote.git
     kubeadmConfigPatches:
       - |
         kind: InitConfiguration
@@ -17,5 +26,14 @@ nodes:
         hostPort: 443
         protocol: TCP
   - role: worker
+    extraMounts:
+      # The local bare Git remote the reconciler syncs from. setup.sh substitutes
+      # the real host path for the placeholder before creating the cluster: the
+      # remote lives under $HOME because that is the directory Docker Desktop and
+      # Rancher Desktop share into their VM by default. /tmp is NOT shared — a
+      # mount from there silently produces an empty directory inside the node,
+      # and Argo CD reports "repository not found".
+      - hostPath: __GITOPS_REMOTE_HOSTPATH__
+        containerPath: /gitops/northstar-remote.git
     labels:
       workload: apps

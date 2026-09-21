@@ -1,61 +1,109 @@
 [
   {
-    "id": "m12-container-base-pinned",
-    "description": "CONTAINER REVIEW: the orders-api Dockerfile pins a versioned base image (python:3.12-slim), not :latest — the build is reproducible",
-    "command": "grep -Eq '^FROM python:3\\.[0-9]+-slim' app/orders-api/Dockerfile && ! grep -Eq '^FROM [^ ]+:latest' app/orders-api/Dockerfile && echo pass || echo fail",
+    "id": "m12-brief-authored",
+    "description": "YOUR BRIEF: platform/helm/orders-api/SPEC.md exists and states what done means — the requirements are written down before the agent designs anything",
+    "command": "S=platform/helm/orders-api/SPEC.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi 'done means' $S && echo authored || echo incomplete",
+    "expect": "authored"
+  },
+  {
+    "id": "m12-brief-is-not-a-claude-md",
+    "description": "YOUR BRIEF: the chart directory carries no CLAUDE.md — a build brief is an input to one task, not a file injected into every future turn in that directory",
+    "command": "[ -f platform/helm/orders-api/CLAUDE.md ] && echo present || echo absent",
+    "expect": "absent"
+  },
+  {
+    "id": "m12-tests-authored",
+    "description": "YOUR TESTS: the chart has its own test directory with a runner and at least two render tests, all executable",
+    "command": "T=platform/helm/orders-api/tests; [ -x $T/run.sh ] || { echo missing; exit 0; }; n=$(ls $T/*.test.sh 2>/dev/null | wc -l | tr -d ' '); x=$(find $T -name '*.test.sh' -perm -u+x 2>/dev/null | wc -l | tr -d ' '); { [ \"$n\" -ge 2 ] && [ \"$x\" = \"$n\" ]; } && echo authored || echo missing",
+    "expect": "authored"
+  },
+  {
+    "id": "m12-tests-assert-on-the-render",
+    "description": "YOUR TESTS: every test renders the chart with helm template rather than grepping values.yaml — a value the template never uses would pass a grep",
+    "command": "T=platform/helm/orders-api/tests; ls $T/*.test.sh >/dev/null 2>&1 || { echo missing; exit 0; }; for f in $T/*.test.sh; do grep -q 'helm template' \"$f\" || { echo grep-only; exit 0; }; done; echo render-based",
+    "expect": "render-based"
+  },
+  {
+    "id": "m12-tests-pass",
+    "description": "YOUR TESTS: the suite passes from a single command and exits 0 — a summary nothing can gate on is not a gate",
+    "command": "[ -x platform/helm/orders-api/tests/run.sh ] || { echo no-suite; exit 0; }; ./platform/helm/orders-api/tests/run.sh >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m12-container-multistage",
-    "description": "CONTAINER REVIEW: the orders-api Dockerfile is multi-stage (two FROM lines) — the compiler stays in the builder, only the artifact ships in the slim runtime",
-    "command": "[ \"$(grep -c '^FROM' app/orders-api/Dockerfile)\" -ge 2 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-container-runs-nonroot",
-    "description": "CONTAINER REPAIR: the Dockerfile switches to a non-root USER before CMD — the review finding is fixed in the image, not just noted in a report",
-    "command": "[ -f app/orders-api/Dockerfile ] || { echo fail; exit 0; }; grep -Eq '^USER +[a-z_][a-z0-9_-]*' app/orders-api/Dockerfile && ! grep -Eq '^USER +(root|0) *$' app/orders-api/Dockerfile && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-container-dockerignore-authored",
-    "description": "CONTAINER REPAIR: app/orders-api/.dockerignore exists and excludes VCS metadata and local env files — the build context can no longer sweep a .git dir or a .env into a layer",
-    "command": "[ -f app/orders-api/.dockerignore ] || { echo fail; exit 0; }; grep -Eq '^\\.git' app/orders-api/.dockerignore && grep -Eq '^\\.env' app/orders-api/.dockerignore && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-render-probe-path-visible",
-    "description": "RENDER REVIEW: helm template surfaces the readiness probe path as a concrete string in the rendered manifest (review the output, not the template)",
-    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /[a-z]' && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-render-strategy-readable",
-    "description": "RENDER REVIEW: the rollout strategy is readable as data in the render — maxUnavailable is a concrete value a reviewer can gate on",
-    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | grep -Eq 'maxUnavailable:' && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-tests-name-the-value-they-found",
+    "description": "YOUR TESTS: a failure message prints the value it found, so a failing pipeline run is debuggable without re-running anything",
+    "command": "T=platform/helm/orders-api/tests; ls $T/*.test.sh >/dev/null 2>&1 || { echo missing; exit 0; }; grep -hq 'FAIL:.*\\$' $T/*.test.sh && echo reports-values || echo bare-fail",
+    "expect": "reports-values"
   },
   {
     "id": "m12-rollout-has-serving-floor",
-    "description": "ROLLOUT REPAIR: the rendered maxUnavailable is no longer 100% — a rolling update must leave a serving floor instead of taking every pod down at once",
-    "command": "v=$(helm template orders-api platform/helm/orders-api 2>/dev/null | awk '/maxUnavailable:/{print $2; exit}' | tr -d '\"'); [ -n \"$v\" ] || { echo fail; exit 0; }; [ \"$v\" != \"100%\" ] && echo pass || echo fail",
-    "expect": "pass"
+    "description": "YOUR CHART: the render leaves a serving floor — maxUnavailable is not 100% AND there is more than one replica, because the floor is the two values together",
+    "command": "R=$(helm template orders-api platform/helm/orders-api 2>/dev/null); [ -n \"$R\" ] || { echo no-render; exit 0; }; mu=$(echo \"$R\" | awk '/maxUnavailable:/{print $2; exit}' | tr -d '\"'); rp=$(echo \"$R\" | awk '/^  replicas:/{print $2; exit}'); { [ \"$mu\" != \"100%\" ] && [ -n \"$rp\" ] && [ \"$rp\" -ge 2 ]; } && echo floor || echo no-floor",
+    "expect": "floor"
+  },
+  {
+    "id": "m12-workload-is-bounded",
+    "description": "YOUR CHART: the rendered container declares both requests and limits for cpu and memory — a container with no requests is BestEffort and is evicted first",
+    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | yq -r 'select(.kind==\"Deployment\") | .spec.template.spec.containers[0].resources | [(.requests.cpu//\"-\"),(.requests.memory//\"-\"),(.limits.cpu//\"-\"),(.limits.memory//\"-\")] | join(\",\")' 2>/dev/null | grep -qv -- '-' && echo bounded || echo unbounded",
+    "expect": "bounded"
+  },
+  {
+    "id": "m12-pod-runs-non-root",
+    "description": "YOUR CHART: the rendered pod sets runAsNonRoot with a NUMERIC non-zero runAsUser — runAsNonRoot alone fails at container creation against an image whose USER is a name",
+    "command": "R=$(helm template orders-api platform/helm/orders-api 2>/dev/null | yq -r 'select(.kind==\"Deployment\") | .spec.template.spec.securityContext | \"\\(.runAsNonRoot) \\(.runAsUser)\"' 2>/dev/null); set -- $R; [ \"$1\" = \"true\" ] || { echo root-or-unset; exit 0; }; case \"$2\" in ''|*[!0-9]*) echo non-numeric-uid;; 0) echo root-or-unset;; *) echo non-root;; esac",
+    "expect": "non-root"
+  },
+  {
+    "id": "m12-baseline-is-not-a-caller-option",
+    "description": "YOUR CHART: the security context is hardcoded in the template, not exposed in values.yaml — a baseline a values file can switch off is not a baseline",
+    "command": "grep -q 'runAsNonRoot' platform/helm/orders-api/templates/deployment.yaml 2>/dev/null && ! grep -q '^securityContext:' platform/helm/orders-api/values.yaml 2>/dev/null && echo hardcoded || echo variabilized",
+    "expect": "hardcoded"
   },
   {
     "id": "m12-chart-lints-clean",
-    "description": "RENDER REVIEW: the chart lints clean (0 failed) — a well-formed chart can still carry defects, which is why lint is not the review",
+    "description": "YOUR CHART: helm lint reports 0 failed — necessary and nowhere near sufficient, which is the whole reason the tests above exist",
     "command": "helm lint platform/helm/orders-api 2>/dev/null | grep -Eq '0 chart\\(s\\) failed' && echo pass || echo fail",
     "expect": "pass"
   },
   {
+    "id": "m12-shipped-to-main",
+    "description": "GOLDEN PATH: the chart change AND its tests are on main — the reconciler's source of truth carries the fix, not a branch nobody merged",
+    "command": "git rev-parse -q --verify main >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:platform/helm/orders-api/tests/run.sh >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:platform/helm/orders-api/values.yaml 2>/dev/null | grep -Eq 'maxUnavailable: *\"?100%' && { echo fail; exit 0; }; echo pass",
+    "expect": "pass"
+  },
+  {
+    "id": "m12-helm-style-skill-present",
+    "description": "HOUSE STANDARD: the helm-style skill exists — handing TDD to the harness only works when the standard is a file the agent can read",
+    "command": "[ -f .claude/skills/helm-style/SKILL.md ] && echo present || echo missing",
+    "expect": "present"
+  },
+  {
+    "id": "m12-house-standard-carries-vocabulary",
+    "description": "HOUSE STANDARD: the skill names the near-miss values that render cleanly and behave wrongly (mebibytes, millicores, RuntimeDefault, selector immutability)",
+    "command": "S=.claude/skills/helm-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; for t in '256Mi' '100m' 'RuntimeDefault' 'immutable'; do grep -q \"$t\" $S || { echo thin; exit 0; }; done; echo complete",
+    "expect": "complete"
+  },
+  {
+    "id": "m12-role-can-invoke-skills",
+    "description": "HARNESS: platform-engineer carries the Skill tool — without it the agent reads SKILL.md as a plain file and no brainstorm, plan or test-first cycle ever runs",
+    "command": "grep -E '^tools:' .claude/agents/platform-engineer.md 2>/dev/null | grep -q '\"Skill\"' && echo capable || echo silently-degraded",
+    "expect": "capable"
+  },
+  {
+    "id": "m12-role-cannot-write-to-a-cluster",
+    "description": "AUTHORITY: the platform-engineer role is declared Git-only — it edits desired state and proposes; the reconciler is the identity that writes",
+    "command": "grep -qi 'NEVER.*kubectl apply' .claude/agents/platform-engineer.md 2>/dev/null && echo git-only || echo unbounded",
+    "expect": "git-only"
+  },
+  {
     "id": "m12-enforcement-readonly-verbs",
-    "description": "ENFORCEMENT: the read-only kubeconfig's ClusterRole grants exactly get/list/watch and no write verb — the agent's default identity cannot mutate the cluster",
+    "description": "ENFORCEMENT: the read-only ClusterRole grants exactly get/list/watch and no write verb — the agent's identity cannot mutate, whatever it intends",
     "command": "grep -Eq 'verbs: \\[\"get\", \"list\", \"watch\"\\]' platform/kubeconfigs/readonly.yaml && ! grep -Eq '\"(create|update|delete|patch)\"' platform/kubeconfigs/readonly.yaml && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m12-enforcement-pod-security-baseline",
-    "description": "ENFORCEMENT: the northstar namespace enforces the baseline Pod Security Standard at admission — violating pods are rejected at creation",
+    "description": "ENFORCEMENT: the northstar namespace enforces the baseline Pod Security Standard — and baseline permits root, which is why the chart carries the security context",
     "command": "grep -Eq 'pod-security.kubernetes.io/enforce: baseline' platform/policies/pod-security.yaml && echo pass || echo fail",
     "expect": "pass"
   },
@@ -73,26 +121,44 @@
   },
   {
     "id": "m12-gitops-gate-denies-docker-push",
-    "description": "GITOPS: the change gate denies docker push from an agent identity (exit 2) — images ship through CI, not the agent",
+    "description": "GITOPS: the change gate denies docker push from an agent identity (exit 2) — desired state ships through Git, images ship through CI. Two paths, deliberately",
     "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:latest\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m12-gitops-propose-is-executable",
-    "description": "GITOPS: the proposal script exists and is executable — the agent's structural stopping point (edit desired state, propose on a branch, stop)",
-    "command": "[ -x scripts/gitops-propose.sh ] && echo pass || echo fail",
+    "id": "m12-gitops-gate-allows-reads",
+    "description": "GITOPS: a read-only kubectl is allowed (exit 0) — a gate that blocks investigation gets switched off within a week",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl get pods -n northstar\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m12-gitops-propose-refuses-cluster-write",
-    "description": "GITOPS: gitops-propose contains no cluster-write command (no kubectl apply / helm upgrade) — it writes to Git and stops, never to a cluster",
-    "command": "! grep -Eq '(kubectl[[:space:]]+(apply|delete|create|patch|scale)|helm[[:space:]]+(upgrade|install))' scripts/gitops-propose.sh && echo pass || echo fail",
+    "description": "GITOPS: the proposal script contains no cluster-write command — it writes to Git and stops, which is the agent's structural stopping point",
+    "command": "[ -x scripts/gitops-propose.sh ] || { echo fail; exit 0; }; ! grep -Eq '(kubectl[[:space:]]+(apply|delete|create|patch|scale)|helm[[:space:]]+(upgrade|install))' scripts/gitops-propose.sh && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m12-repairs-shipped-to-main",
-    "description": "GOLDEN PATH: all three repairs are committed on main, not left dirty in the working tree — the agent proposed, a human merged, and the reconciler's source of truth now carries the fix",
-    "command": "git rev-parse -q --verify main >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:app/orders-api/Dockerfile 2>/dev/null | grep -Eq '^USER +[a-z_]' || { echo fail; exit 0; }; git show main:app/orders-api/.dockerignore >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:platform/helm/orders-api/values.yaml 2>/dev/null | grep -Eq 'maxUnavailable: *\"?100%' && { echo fail; exit 0; }; echo pass",
+    "id": "m12-reconciler-crds-vendored",
+    "description": "RECONCILER: the Application/AppProject CRDs ship in the repo — an Application applied without them fails with 'no matches for kind', and a network fetch is one more thing to be offline",
+    "command": "F=platform/argocd/crds.yaml; [ -f $F ] || { echo missing; exit 0; }; grep -q 'applications.argoproj.io' $F && grep -q 'appprojects.argoproj.io' $F && echo vendored || echo incomplete",
+    "expect": "vendored"
+  },
+  {
+    "id": "m12-reconciler-repo-server-reachable",
+    "description": "RECONCILER: argocd-repo-server has a Service — the controller resolves it by DNS name, and without one the Application never renders a manifest",
+    "command": "awk '/^kind: Service/{s=1} s&&/name: argocd-repo-server/{print \"found\"; exit}' platform/argocd/install.yaml | grep -q found && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m12-reconciler-reads-a-mounted-remote",
+    "description": "RECONCILER: the Applications point at the remote mounted into the cluster, not at a host path a pod cannot see",
+    "command": "grep -h 'repoURL:' platform/argocd/applications/*.yaml | grep -q 'file:///gitops/' && ! grep -qh 'file:///tmp/' platform/argocd/applications/*.yaml && echo mounted || echo unreachable",
+    "expect": "mounted"
+  },
+  {
+    "id": "m12-kind-mounts-the-remote",
+    "description": "RECONCILER: the kind config mounts the bare remote through to /gitops on the node — the mount is what makes file:///gitops resolvable inside the repo-server",
+    "command": "grep -q 'containerPath: /gitops/northstar-remote.git' platform/kind/kind-config.yaml && grep -q 'containerPath: /gitops/northstar-remote.git' platform/kind/kind-config-lean.yaml && echo mounted || echo missing",
+    "expect": "mounted"
   }
 ]

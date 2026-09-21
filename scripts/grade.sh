@@ -324,7 +324,7 @@ case "$MODULE" in
     ;;
 
   m12)
-    echo "Checking: Containers, Kubernetes & GitOps — container review, rendered-manifest review, cluster enforcement, and the reconciler-only change path"
+    echo "Checking: Containers, Kubernetes & GitOps — your brief, the harness-authored render tests, the hardened chart, and the reconciler-only change path"
     echo ""
 
     CHECKS="$REPO_ROOT/labs/m12/checks.json"

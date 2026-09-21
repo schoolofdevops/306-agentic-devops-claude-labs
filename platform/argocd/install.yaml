@@ -7,14 +7,29 @@
 #
 # Intentionally omitted (not needed for these labs, and would add weight to
 # a Kind-based dev environment):
-#   - Redis (used upstream for caching/state)
 #   - Dex / SSO integration
 #   - ApplicationSet controller
 #   - Notifications controller
-#   - The full upstream RBAC bundle and CRD manifests
+#   - The full upstream RBAC bundle
 #
-# Argo CD CRDs (Application, AppProject, etc.) are NOT included here and must
-# be installed separately before applying this file.
+# Apply platform/argocd/crds.yaml FIRST. The Application and AppProject CRDs are
+# vendored there; without them an Application manifest fails with
+# "no matches for kind".
+#
+# Three things in here are not optional, and each one was added after watching
+# the reconciler fail without it on a real Kind cluster:
+#   - a Service for argocd-repo-server. The controller reaches the repo-server by
+#     DNS name; with no Service the Application reports
+#     "lookup argocd-repo-server ... no such host" and never renders a manifest.
+#   - argocd-redis. The controller caches the resource tree there; without it
+#     every reconcile logs "Failed to cache app resources" and the app status
+#     stays Unknown.
+#   - the /gitops mount on the repo-server. The local bare remote lives on the
+#     HOST (under $HOME — see scripts/local-git-remote.sh), which is invisible
+#     inside a pod. The Kind node mounts it at /gitops (see
+#     platform/kind/kind-config.yaml) and the repo-server mounts it from the node,
+#     so file:///gitops/northstar-remote.git resolves. Without it the Application
+#     reports "repository not found".
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -152,6 +167,108 @@ spec:
           ports:
             - containerPort: 8081
               name: server
+          volumeMounts:
+            # The local bare Git remote, mounted through from the host by Kind.
+            # This is what makes file:///gitops/northstar-remote.git resolvable
+            # to the process that actually clones the repository.
+            - name: gitops-remote
+              mountPath: /gitops
+              readOnly: true
+      volumes:
+        - name: gitops-remote
+          hostPath:
+            path: /gitops
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-repo-server
+spec:
+  selector:
+    app.kubernetes.io/name: argocd-repo-server
+  ports:
+    - name: server
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-redis
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-redis
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-redis
+spec:
+  selector:
+    app.kubernetes.io/name: argocd-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+# Upstream ships this empty; the server and controller expect it to exist.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-secret
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-secret
+type: Opaque
+---
+# The project every Application in this course belongs to. Upstream creates it
+# on first server start; declaring it keeps the install order deterministic.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+spec:
+  description: Northstar Commerce applications
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: "*"
+      server: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
 ---
 apiVersion: v1
 kind: Service

@@ -3,7 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REMOTE_PATH="/tmp/northstar-remote.git"
+# The Kind node mounts this directory through to /gitops so the Argo CD
+# repo-server can clone it. It has to live under a path the container runtime
+# shares into its VM — $HOME is shared by default on Docker Desktop and Rancher
+# Desktop, /tmp is not. Override with NORTHSTAR_GIT_REMOTE if your setup differs;
+# platform/kind/setup.sh reads the same variable.
+REMOTE_PATH="${NORTHSTAR_GIT_REMOTE:-$HOME/.northstar/northstar-remote.git}"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -35,6 +40,7 @@ if [[ -d "$REMOTE_PATH" ]]; then
 fi
 
 echo -e "${GREEN}==> Creating bare Git remote at $REMOTE_PATH...${NC}"
+mkdir -p "$(dirname "$REMOTE_PATH")"
 git init --bare "$REMOTE_PATH"
 
 echo -e "${GREEN}==> Adding as remote 'local' and pushing...${NC}"

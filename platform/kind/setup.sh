@@ -61,9 +61,29 @@ if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
   fi
 fi
 
+# The node mounts the local bare Git remote through to /gitops so the Argo CD
+# repo-server can clone it. Two things matter here and both were learned the hard
+# way: the host path must exist before the cluster is created, and it must live
+# somewhere the container runtime actually shares into its VM. $HOME is shared by
+# default on Docker Desktop and Rancher Desktop; /tmp is not, and a mount from an
+# unshared path yields an EMPTY directory inside the node with no error anywhere —
+# Argo CD then reports "repository not found" and the cause is invisible.
+REMOTE_PATH="${NORTHSTAR_GIT_REMOTE:-$HOME/.northstar/northstar-remote.git}"
+if [[ ! -d "$REMOTE_PATH" ]]; then
+  warn "Git remote $REMOTE_PATH does not exist yet — creating the directory so the node mount succeeds."
+  warn "Run scripts/local-git-remote.sh to initialise it before installing Argo CD."
+  mkdir -p "$REMOTE_PATH"
+fi
+
+# Render the config with the real host path substituted for the placeholder.
+RENDERED_CONFIG="$(mktemp -t kind-config-northstar)"
+trap 'rm -f "$RENDERED_CONFIG"' EXIT
+sed "s|__GITOPS_REMOTE_HOSTPATH__|${REMOTE_PATH}|" "$CONFIG" > "$RENDERED_CONFIG"
+info "Mounting Git remote $REMOTE_PATH -> /gitops/northstar-remote.git on every node"
+
 # Create cluster
 info "Creating Kind cluster '$CLUSTER_NAME'..."
-kind create cluster --config "$CONFIG" --wait 60s
+kind create cluster --config "$RENDERED_CONFIG" --wait 60s
 
 # Wait for nodes to be ready
 info "Waiting for nodes to be ready..."
