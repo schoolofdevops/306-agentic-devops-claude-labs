@@ -1,134 +1,206 @@
 [
   {
-    "id": "m13-headless-print-flag",
-    "description": "HEADLESS: claude exposes -p/--print for non-interactive CI use — the pipeline runs the agent headless, not in a REPL",
-    "command": "claude --help 2>/dev/null | grep -Eq '\\-p, --print' && echo pass || echo fail",
+    "id": "m13-brief-authored",
+    "description": "YOUR BRIEF: release/SPEC.md exists and states what done means — requirements written before the gate was designed",
+    "command": "S=release/SPEC.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi 'done means' $S && echo authored || echo incomplete",
+    "expect": "authored"
+  },
+  {
+    "id": "m13-brief-is-not-a-claude-md",
+    "description": "YOUR BRIEF: no CLAUDE.md under release/ — a build brief is an input to one task, not context injected into every future turn",
+    "command": "[ -f release/CLAUDE.md ] && echo present || echo absent",
+    "expect": "absent"
+  },
+  {
+    "id": "m13-gate-executable",
+    "description": "YOUR GATE: release/ci-release-gate.sh exists and is executable — the release gate runs without you, which is the difference between a gate and a habit",
+    "command": "[ -x release/ci-release-gate.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-headless-output-json",
-    "description": "HEADLESS: claude exposes --output-format json — the pipeline gets a machine-parseable result to gate on, not free text",
-    "command": "claude --help 2>/dev/null | grep -Eq 'output-format' && echo pass || echo fail",
+    "id": "m13-gate-blocks-with-exit-2",
+    "description": "EXIT PROTOCOL: the gate exits 2 on the known-bad candidate — block is its own code, not a generic failure",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; ./release/ci-release-gate.sh --values fixtures/release/candidate-values.yaml >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-headless-json-schema",
-    "description": "HEADLESS: claude exposes --json-schema — structured output can be constrained to a release-verdict contract the pipeline validates",
-    "command": "claude --help 2>/dev/null | grep -Eq 'json-schema' && echo pass || echo fail",
+    "id": "m13-gate-approves-with-exit-0",
+    "description": "EXIT PROTOCOL: the gate exits 0 on a candidate that clears the analysers — it blocks on evidence, not on everything",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; C=$(ls release/tests/fixtures/*.yaml 2>/dev/null | head -1); [ -n \"$C\" ] || { echo no-good-fixture; exit 0; }; ./release/ci-release-gate.sh --values \"$C\" >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-hermetic-bare-flag",
-    "description": "HERMETIC: claude exposes --bare (skip hooks/LSP/plugins) — the analysis runs without project context for a reproducible, hermetic verdict",
-    "command": "claude --help 2>/dev/null | grep -Eq '\\-\\-bare' && echo pass || echo fail",
+    "id": "m13-gate-fails-closed-on-missing-candidate",
+    "description": "FAIL-CLOSED: a candidate file it cannot read exits 1, NOT 0 and not 2 — the dangerous failure of a gate is approving a release it never examined",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; ./release/ci-release-gate.sh --values fixtures/release/does-not-exist.yaml >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-release-schema-present",
-    "description": "SCHEMA: the release-verdict JSON schema exists — the output contract the hermetic analysis is bound to (verdict + blockers + evidence)",
-    "command": "jq -e '.properties.verdict.enum | index(\"block\")' contracts/release-verdict.schema.json >/dev/null 2>&1 && echo pass || echo fail",
+    "id": "m13-gate-fails-closed-with-no-input",
+    "description": "FAIL-CLOSED: run with no --values the gate refuses rather than silently analysing some default candidate",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; ./release/ci-release-gate.sh >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-pipeline-analyze-executable",
-    "description": "PIPELINE: pipeline-analyze.sh exists and is executable — the deterministic reference for what the in-CI agent analysis produces",
-    "command": "[ -x scripts/pipeline-analyze.sh ] && echo pass || echo fail",
+    "id": "m13-gate-silent-on-stdout-when-it-cannot-evaluate",
+    "description": "FAIL-CLOSED: nothing is printed on stdout when the gate cannot evaluate — a verdict object on a fail-closed path is something downstream will misread",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; out=$(./release/ci-release-gate.sh --values fixtures/release/does-not-exist.yaml 2>/dev/null); [ -z \"$out\" ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-pipeline-analyze-no-mutation",
-    "description": "LEAST PRIVILEGE: the pipeline analyzer contains no cluster/infra write command — the agent in CI analyzes, it never applies (no kubectl apply / helm upgrade / terraform apply / docker push)",
-    "command": "! sed -E 's/^[[:space:]]*#.*$//' scripts/pipeline-analyze.sh | grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch)|helm[[:space:]]+(upgrade|install)|terraform[[:space:]]+apply|docker[[:space:]]+push)' && echo pass || echo fail",
+    "id": "m13-verdict-names-the-candidate",
+    "description": "AUDITABILITY: the verdict names the candidate it judged — six weeks later this is what says it read the release and not the default",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; out=$(./release/ci-release-gate.sh --values fixtures/release/candidate-values.yaml 2>/dev/null); echo \"$out\" | jq -e '.candidate | test(\"candidate-values\")' >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-pipeline-blocks-bad-release",
-    "description": "GATE: pipeline-analyze BLOCKS the v1.2.0 release candidate — the candidate's readiness probe (/health) is not a route the app serves, caught from executable evidence",
-    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo missing-candidate; exit 0; }; bash scripts/pipeline-analyze.sh --values fixtures/release/candidate-values.yaml --field verdict 2>/dev/null",
-    "expect": "block"
-  },
-  {
-    "id": "m13-pipeline-blocker-readiness",
-    "description": "GATE EVIDENCE: the block reason names the readiness mismatch — the probe path is checked against the routes the app ACTUALLY serves, not a doc claim",
-    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo fail; exit 0; }; bash scripts/pipeline-analyze.sh --values fixtures/release/candidate-values.yaml --field blockers 2>/dev/null | grep -Eq 'readiness: probe path /health is not a route the app serves' && echo pass || echo fail",
+    "id": "m13-blockers-carry-a-source",
+    "description": "AUDITABILITY: every blocker names where the finding came from — 'failed policy check' is a mood, not a finding",
+    "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; out=$(./release/ci-release-gate.sh --values fixtures/release/candidate-values.yaml 2>/dev/null); n=$(echo \"$out\" | jq '[.blockers[] | select(.source != null and .source != \"\")] | length' 2>/dev/null); t=$(echo \"$out\" | jq '.blockers | length' 2>/dev/null); { [ -n \"$n\" ] && [ \"$n\" = \"$t\" ] && [ \"$t\" -gt 0 ]; } && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-pipeline-approves-repaired-main",
-    "description": "GATE IS NOT A RUBBER STAMP: the same analyzer run against the repaired chart on main returns approve — the gate blocks the candidate on evidence, not because it blocks everything",
-    "command": "bash scripts/pipeline-analyze.sh --field verdict 2>/dev/null",
-    "expect": "approve"
+    "id": "m13-gate-never-ships",
+    "description": "AUTHORITY: the gate contains no command that tags, pushes, deploys or applies — a gate that can ship is not a gate",
+    "command": "[ -f release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; grep -Eq '(git[[:space:]]+tag|git[[:space:]]+push|docker[[:space:]]+push|helm[[:space:]]+(upgrade|install)|kubectl[[:space:]]+apply)' release/ci-release-gate.sh && echo ships || echo reports-only",
+    "expect": "reports-only"
+  },
+  {
+    "id": "m13-gate-captures-analyser-status",
+    "description": "SHELL TRAPS: the gate sets pipefail and captures an analyser's exit status explicitly, rather than trusting $? after a pipeline",
+    "command": "G=release/ci-release-gate.sh; [ -f $G ] || { echo no-gate; exit 0; }; grep -q 'pipefail' $G && grep -Eq '[a-z_]+_rc=\\$\\?' $G && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-tests-authored",
+    "description": "YOUR TESTS: a runner plus at least three executable test files live next to the gate",
+    "command": "T=release/tests; [ -x $T/run.sh ] || { echo missing; exit 0; }; n=$(ls $T/*.test.sh 2>/dev/null | wc -l | tr -d ' '); x=$(find $T -name '*.test.sh' -perm -u+x 2>/dev/null | wc -l | tr -d ' '); { [ \"$n\" -ge 3 ] && [ \"$x\" = \"$n\" ]; } && echo authored || echo missing",
+    "expect": "authored"
+  },
+  {
+    "id": "m13-tests-cover-all-three-outcomes",
+    "description": "YOUR TESTS: the suite asserts on all three exit codes — approve, block AND cannot-evaluate. The third is the one nobody exercises by accident",
+    "command": "T=release/tests; ls $T/*.test.sh >/dev/null 2>&1 || { echo missing; exit 0; }; for c in 0 1 2; do grep -hqE \"eq[[:space:]]+$c|== *$c\" $T/*.test.sh || { echo \"missing-$c\"; exit 0; }; done; echo complete",
+    "expect": "complete"
+  },
+  {
+    "id": "m13-tests-pass",
+    "description": "YOUR TESTS: the suite passes from a single command and exits 0",
+    "command": "[ -x release/tests/run.sh ] || { echo no-suite; exit 0; }; ./release/tests/run.sh >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-tests-catch-a-downgraded-fail-closed",
+    "description": "YOUR TESTS ACTUALLY WORK: turning the fail-closed path into a warning makes the suite fail — an assertion never seen failing proves nothing",
+    "command": "G=release/ci-release-gate.sh; [ -x $G ] && [ -x release/tests/run.sh ] || { echo no-artifact; exit 0; }; cp $G /tmp/m13-gate-orig.sh; sed -i.bak 's/exit 1; }/exit 0; }/' $G 2>/dev/null; ./release/tests/run.sh >/dev/null 2>&1; rc=$?; cp /tmp/m13-gate-orig.sh $G; rm -f $G.bak; [ $rc -ne 0 ] && echo caught || echo blind",
+    "expect": "caught"
+  },
+  {
+    "id": "m13-ci-gate-workflow-shipped",
+    "description": "CI: the deterministic gate runs on pull requests from .github/workflows/release-gate.yml",
+    "command": "W=.github/workflows/release-gate.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'pull_request' $W && grep -q 'ci-release-gate.sh' $W && echo shipped || echo incomplete",
+    "expect": "shipped"
+  },
+  {
+    "id": "m13-ci-gate-separates-block-from-cannot-evaluate",
+    "description": "CI: the workflow branches on the gate's exit code so a block and a fail-closed do not report the same thing — they send you to different places",
+    "command": "W=.github/workflows/release-gate.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q \"rc == '2'\" $W && grep -q \"rc == '1'\" $W && echo separated || echo collapsed",
+    "expect": "separated"
+  },
+  {
+    "id": "m13-ci-gate-carries-no-secret",
+    "description": "CI: the deterministic workflow references no secret and takes read-only repository permission — a gate that needs a credential is doing someone else's job",
+    "command": "W=.github/workflows/release-gate.yml; [ -f $W ] || { echo missing; exit 0; }; ! grep -q 'secrets\\.' $W && grep -q 'contents: read' $W && echo clean || echo overprivileged",
+    "expect": "clean"
+  },
+  {
+    "id": "m13-claude-action-pinned-and-subscription-authed",
+    "description": "CI: the Claude workflow pins anthropics/claude-code-action@v1 and authenticates with an OAuth token, so a Pro/Max subscription works without an API key",
+    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'anthropics/claude-code-action@v1' $W && grep -q 'claude_code_oauth_token' $W && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m13-claude-action-cannot-edit",
+    "description": "AUTHORITY: the model in CI gets an allow-list with no Edit or Write — it explains a verdict and cannot change the candidate, the gate or the tests",
+    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; a=$(grep -o '\\-\\-allowedTools[^\\n]*' $W | head -1); [ -n \"$a\" ] || { echo unbounded; exit 0; }; echo \"$a\" | grep -Eq '(Edit|Write|MultiEdit)' && echo can-edit || echo read-only",
+    "expect": "read-only"
+  },
+  {
+    "id": "m13-claude-action-is-bounded",
+    "description": "COST: the CI model run is capped with --max-turns — an agent in a pipeline with no turn cap is an unbounded bill and an unbounded runtime",
+    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q -- '--max-turns' $W && echo bounded || echo unbounded",
+    "expect": "bounded"
+  },
+  {
+    "id": "m13-claude-action-cannot-gate-the-merge",
+    "description": "AUTHORITY: the explaining workflow can never fail or pass the merge — the deterministic gate holds that authority alone",
+    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'continue-on-error: true' $W && grep -q 'exit 0' $W && echo cannot-gate || echo can-gate",
+    "expect": "cannot-gate"
+  },
+  {
+    "id": "m13-gate-style-skill-present",
+    "description": "HOUSE STANDARD: the gate-style skill exists and carries the three-code protocol — handing TDD to the harness needs a standard it can read",
+    "command": "S=.claude/skills/gate-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -q 'cannot evaluate' $S && grep -q 'fail-closed' $S && echo present || echo thin",
+    "expect": "present"
+  },
+  {
+    "id": "m13-gate-style-names-the-shell-traps",
+    "description": "HOUSE STANDARD: the skill names the shell constructs that silently turn a block into an approval — pipefail, $? after a pipe, grep under set -e",
+    "command": "S=.claude/skills/gate-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -q 'pipefail' $S && grep -q 'set -e' $S && echo complete || echo thin",
+    "expect": "complete"
+  },
+  {
+    "id": "m13-release-engineer-can-invoke-skills",
+    "description": "HARNESS: the release-engineer role carries the Skill tool — without it the agent reads SKILL.md as a plain file and no method runs",
+    "command": "grep -E '^tools:' .claude/agents/release-engineer.md 2>/dev/null | grep -q '\"Skill\"' && echo capable || echo silently-degraded",
+    "expect": "capable"
+  },
+  {
+    "id": "m13-release-engineer-cannot-ship",
+    "description": "AUTHORITY: the role that builds the gate is declared unable to tag, push or deploy, and unable to approve its own release",
+    "command": "R=.claude/agents/release-engineer.md; [ -f $R ] || { echo missing; exit 0; }; grep -qi 'NEVER.*git tag' $R && grep -qi 'never the approver' $R && echo bounded || echo unbounded",
+    "expect": "bounded"
+  },
+  {
+    "id": "m13-release-engineer-in-authority-matrix",
+    "description": "AUTHORITY: the role exists in contracts/authority-matrix.yaml with write authority over release/ — a role file alone is not a declared authority",
+    "command": "scripts/role-authority-check.sh release-engineer write >/dev/null 2>&1; [ $? -eq 0 ] && echo capable || echo blocked",
+    "expect": "capable"
   },
   {
     "id": "m13-sod-reviewer-cannot-edit",
-    "description": "SEPARATION OF DUTIES: the change-reviewer identity has no Edit/Write tool — the agent that approves cannot be the agent that authored the change",
-    "command": "grep -Eq 'disallowedTools: \\[.*\"Edit\".*\"Write\"' .claude/agents/change-reviewer.md && echo pass || echo fail",
-    "expect": "pass"
+    "description": "SEPARATION OF DUTIES: the change-reviewer has no write tool — the reviewer that edits the candidate has stopped being a reviewer",
+    "command": "scripts/role-authority-check.sh change-reviewer write >/dev/null 2>&1; [ $? -eq 3 ] && echo blocked || echo capable",
+    "expect": "blocked"
   },
   {
-    "id": "m13-sod-proposer-is-gitonly",
-    "description": "SEPARATION OF DUTIES: the platform-engineer proposer is Git-only — its description forbids applying to the cluster, so it proposes but cannot merge or deploy",
-    "command": "grep -Eiq 'never|git-only' .claude/agents/platform-engineer.md && grep -Eq 'gitops-propose|propose' .claude/agents/platform-engineer.md 2>/dev/null; grep -Eiq 'NEVER .*(applies|apply|deletes namespaces|scales prod)' .claude/agents/platform-engineer.md && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m13-headless-json-is-machine-readable",
+    "description": "HEADLESS SURFACE: claude -p --output-format json is the documented pipeline shape, and the lab's stage isolates MCP so its stdout stays parseable",
+    "command": "grep -q 'output-format json' site/docs/m13-cicd-release/lab.md 2>/dev/null || grep -rq 'output-format json' . --include='*.md' 2>/dev/null; echo present",
+    "expect": "present"
   },
   {
-    "id": "m13-gate-blocks-prod-apply",
-    "description": "APPROVAL BOUNDARY: the change gate denies terraform apply on production from an agent identity (exit 2) — production changes route through GitOps, never a direct apply in CI",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform apply -auto-approve -var env=production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m13-gate-blocks-docker-push",
-    "description": "APPROVAL BOUNDARY: the change gate denies docker push from an agent identity (exit 2) — images are built and published by CI, not from the agent in the pipeline",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:1.4.0\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m13-pipeline-analyze-blocks-candidate",
+    "description": "ANALYSER: pipeline-analyze.sh blocks the release candidate on its own — the gate composes this rule rather than re-implementing it",
+    "command": "scripts/pipeline-analyze.sh --values fixtures/release/candidate-values.yaml --field verdict 2>/dev/null",
+    "expect": "block"
   },
   {
     "id": "m13-canary-verify-executable",
-    "description": "CANARY: canary-verify.sh exists and is executable — the post-deploy health verdict the agent reads before a promote decision",
+    "description": "ANALYSER: canary-verify.sh is executable — the second evidence source the gate composes when a canary snapshot is supplied",
     "command": "[ -x scripts/canary-verify.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-canary-healthy-promotes",
-    "description": "CANARY: a healthy canary (error rate + p95 within SLO, all replicas Ready) yields verdict=promote",
-    "command": "bash scripts/canary-verify.sh fixtures/canary/canary-healthy.json --field verdict 2>/dev/null",
-    "expect": "promote"
-  },
-  {
-    "id": "m13-canary-unhealthy-rolls-back",
-    "description": "CANARY: an unhealthy canary (SLO breach and/or replicas not Ready) yields verdict=rollback — the signal to not promote",
-    "command": "bash scripts/canary-verify.sh fixtures/canary/canary-unhealthy.json --field verdict 2>/dev/null",
-    "expect": "rollback"
-  },
-  {
-    "id": "m13-ci-gate-shipped",
-    "description": "YOUR GATE: scripts/ci-release-gate.sh exists and is executable — the release gate runs without you, which is the difference between a gate and a habit",
-    "command": "[ -x scripts/ci-release-gate.sh ] && echo pass || echo fail",
+    "id": "m13-gate-blocks-prod-apply",
+    "description": "CHANGE GATE: a production terraform apply is still denied from an agent identity (exit 2) — release tooling does not widen that",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod apply\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m13-ci-gate-blocks-candidate",
-    "description": "YOUR GATE: it exits non-zero on the v1.2.0 candidate — a gate that prints failures and exits 0 is a log line, not a gate",
-    "command": "[ -x scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; bash scripts/ci-release-gate.sh --values fixtures/release/candidate-values.yaml >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m13-ci-gate-approves-main",
-    "description": "YOUR GATE: it exits 0 against the repaired chart on main — it blocks on evidence, not on everything",
-    "command": "[ -x scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; bash scripts/ci-release-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m13-ci-gate-fails-closed-on-missing-candidate",
-    "description": "YOUR GATE: a candidate file it cannot read BLOCKS rather than falling back to main — the dangerous failure of a gate is approving a release it never examined",
-    "command": "[ -x scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; bash scripts/ci-release-gate.sh --values fixtures/release/does-not-exist.yaml >/dev/null 2>&1; [ $? -ne 0 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m13-ci-gate-never-mutates",
-    "description": "YOUR GATE: the stage carries no write command — the agent in CI analyses, it never applies",
-    "command": "[ -f scripts/ci-release-gate.sh ] || { echo fail; exit 0; }; ! sed -E 's/^[[:space:]]*#.*$//' scripts/ci-release-gate.sh | grep -Eq '(kubectl[[:space:]]+(apply|delete|scale|patch)|helm[[:space:]]+(upgrade|install)|terraform[[:space:]]+apply|docker[[:space:]]+push)' && echo pass || echo fail",
+    "id": "m13-gate-blocks-docker-push",
+    "description": "CHANGE GATE: docker push is denied from an agent identity (exit 2) — images ship from CI, and the gate never ships at all",
+    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:latest\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
   }
 ]

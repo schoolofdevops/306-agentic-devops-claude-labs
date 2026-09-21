@@ -74,6 +74,18 @@ roles:
       - "Must split provider vs application latency before assigning blame"
       - "Route changes go through the change gate and a change-reviewer"
 
+  release-engineer:
+    description: "Builds the CI release gate and the workflows that run it; reports verdicts, never ships"
+    permissions:
+      read: ["release/", "scripts/", "platform/", "fixtures/", "contracts/"]
+      execute: ["scripts/pipeline-analyze.sh", "scripts/canary-verify.sh", "helm template", "helm lint"]
+      write: ["release/", ".github/workflows/"]
+      approve: []
+    constraints:
+      - "Cannot tag, push images, or deploy — a gate that can ship is not a gate"
+      - "Cannot approve a release it gated; the proposer is never the approver"
+      - "Cannot edit a candidate to make its own gate pass"
+
   change-reviewer:
     description: "Reviews and approves changes before production deployment"
     permissions:
@@ -108,5 +120,6 @@ role_bundles:
   platform-engineer: { model: sonnet, effort: medium, writer: true, turn_budget: 12, worktree: true }
   security-reviewer: { model: opus, effort: high, writer: false, turn_budget: 10, worktree: false }
   finops-analyst: { model: haiku, effort: low, writer: false, turn_budget: 6, worktree: false }
+  release-engineer: { model: sonnet, effort: medium, writer: true, turn_budget: 14, worktree: true }
   mlops-engineer: { model: sonnet, effort: medium, writer: false, turn_budget: 8, worktree: false }
   change-reviewer: { model: opus, effort: high, writer: false, turn_budget: 10, worktree: true }
