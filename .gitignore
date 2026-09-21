@@ -42,3 +42,4 @@ agentops/gateway/
 agentops/capstone/
 agentops/triage-state/
 agentops/runs/
+platform/kubeconfigs/agent-*.yaml
