@@ -14,8 +14,10 @@ spending their attention on blast radius and cost, not on whether you called the
 ## Inputs
 
 - `target` — the module directory being authored or changed (e.g. `infra/modules/read-replica`).
-- `harness` — the verification directory that calls the module and holds the offline provider block
-  (e.g. `infra/modules/read-replica/tests`). This is where `init`, `validate`, `test` and `plan` run.
+- `tests` — the module's own test directory (e.g. `infra/modules/read-replica/tests`), holding
+  `*.tftest.hcl`. `terraform test` runs from the module root, not from inside this directory.
+- `environment` — the environment that calls the module (e.g. `infra/environments/dev`). This is where
+  `plan` runs and where the review chain's plan JSON comes from.
 - `infrastructure` — the existing modules to match, always `infra/modules/` (`compute`, `database`, `networking`, `storage`).
 
 ## Deterministic zone — collect facts
@@ -30,14 +32,13 @@ terraform -chdir="${target}" fmt -check -diff
 
 It exits non-zero and prints a diff when spacing or alignment is off.
 
-`validate` needs an initialized directory with a provider — a bare module directory exits 1 with
-`Missing required provider`, which is a setup error, not a finding about the code. Validate from the
-**verification harness** that calls the module (the directory holding the offline provider block below),
-never from the module directory itself:
+`validate` needs an initialized directory. Initialise the module and validate it, then run its tests
+from the same place — the `tests/` subdirectory is discovered automatically:
 
 ```bash
-terraform -chdir="${harness}" init -input=false
-terraform -chdir="${harness}" validate
+terraform -chdir="${target}" init -input=false
+terraform -chdir="${target}" validate
+terraform -chdir="${target}" test
 ```
 
 Both must be clean before the module is offered for review.
@@ -107,33 +108,61 @@ anything near-miss will validate and then behave wrongly or fail at plan time.
 
 ## Offline verification contract
 
-This infrastructure is authored and verified without AWS credentials. Two mechanisms, and they answer different
-questions — do not substitute one for the other.
+This infrastructure is authored and verified without AWS credentials. Two mechanisms, and they answer
+different questions — do not substitute one for the other.
 
-**`terraform test` with `mock_provider`** answers *"is the module internally correct?"* Write the test
-first; the resource addresses asserted in the test become the contract the HCL must satisfy.
+### `terraform test` — "is the module internally correct?"
+
+Put the test in `<module>/tests/*.tftest.hcl` and run `terraform test` **from the module root**. With that
+layout Terraform tests the module directly, so assertions address its resources by their real names:
 
 ```hcl
 mock_provider "aws" {}
-```
 
-**A credential-skipped `plan`** answers *"what would this do to the infrastructure?"* and is what produces the plan
-JSON the review chain reads. Use exactly this provider block for offline planning:
-
-```hcl
-provider "aws" {
-  region                      = "us-east-1"
-  access_key                  = "mock_access_key"
-  secret_key                  = "mock_secret_key"
-  skip_credentials_validation = true
-  skip_requesting_account_id  = true
-  skip_metadata_api_check     = true
-  skip_region_validation      = true
+run "replica_is_encrypted" {
+  command = plan
+  assert {
+    condition     = aws_db_instance.replica.storage_encrypted == true
+    error_message = "Replica storage must always be encrypted."
+  }
 }
 ```
 
-The plan is real, the resource graph is real, the credentials are not. `terraform show -json` on the
-resulting plan file emits the same shape the review scripts consume.
+**Do not wrap the module in a caller just to test it.** A wrapper (`module "x" { source = "../" }` inside
+the test directory) puts a module boundary between the test and the code, and a module exposes only its
+declared outputs — so `module.x.aws_db_instance.replica.storage_encrypted` is unreachable. Terraform
+reports `This object does not have an attribute named "aws_db_instance"`. Working around that by adding
+outputs for security flags is worse: outputs exist so a caller can wire the module up, not to let a test
+read internal state.
+
+**Attributes that are unknown at plan time** (an ARN, an id — anything the provider computes on apply)
+cannot be asserted directly under `command = plan`. Supply them rather than weakening the assertion:
+
+```hcl
+override_resource {
+  target          = aws_sns_topic.alerts
+  override_during = plan
+  values = { arn = "arn:aws:sns:us-east-1:123456789012:example-alerts" }
+}
+```
+
+**When you extract a child module, its assertions move with it.** Tests for what the child now owns belong
+in the child's own `tests/`; the parent keeps a test proving it is actually wired to the child. A parent
+test that asserts nothing about the wiring cannot tell you the child is orphaned.
+
+### A plan from an environment — "what would this do to the infrastructure?"
+
+The review chain reads plan JSON, and that plan comes from an **environment that calls the module**, not
+from the module on its own. A module is not a root module: planning it standalone means supplying every
+variable by hand, and it tells you nothing about how the change lands among everything else.
+
+```bash
+terraform -chdir=infra/environments/dev plan -out=tfplan
+terraform -chdir=infra/environments/dev show -json tfplan > plan.json
+```
+
+The plan is real and the resource graph is real. `terraform show -json` emits the shape the review scripts
+consume, and the module's resources appear under `module.<name>.*` alongside everything already there.
 
 ## Reasoning zone — check generated HCL before saving
 
@@ -149,8 +178,9 @@ Walk the generated files against these branches and name what you find:
   **SECURITY: baseline violated.** This one blocks; do not offer the module for review until it is fixed.
 - A metric name, engine string, or comparison operator not in the vocabulary table →
   **CORRECTNESS: wrong AWS vocabulary.** Correct it against the table rather than guessing.
-- A provider block inside a module directory (other than the offline plan harness) →
-  **STYLE: module pins its own provider.** Move it to the root.
+- A provider block inside a module directory →
+  **STYLE: module pins its own provider.** Move it to the root. A module's tests declare
+  `mock_provider "aws" {}` in the test file itself; that is not a provider block on the module.
 
 Every branch terminates in a named finding. "Looks fine" is not an output.
 

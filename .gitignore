@@ -18,6 +18,11 @@ htmlcov/
 # Terraform
 **/.terraform/
 **/.terraform.lock.hcl
+# Plan artifacts are point-in-time outputs, not source. Regenerate, never commit.
+**/tfplan
+**/tfplan.*
+**/plan.json
+**/plan-bad.json
 *.tfstate
 *.tfstate.*
 crash.log
