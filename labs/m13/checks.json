@@ -62,7 +62,7 @@
   {
     "id": "m13-gate-never-ships",
     "description": "AUTHORITY: the gate contains no command that tags, pushes, deploys or applies — a gate that can ship is not a gate",
-    "command": "[ -f release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; grep -Eq '(git[[:space:]]+tag|git[[:space:]]+push|docker[[:space:]]+push|helm[[:space:]]+(upgrade|install)|kubectl[[:space:]]+apply)' release/ci-release-gate.sh && echo ships || echo reports-only",
+    "command": "[ -f release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; sed 's/#.*$//' release/ci-release-gate.sh | grep -Eq '(git[[:space:]]+tag|git[[:space:]]+push|docker[[:space:]]+push|helm[[:space:]]+(upgrade|install)|kubectl[[:space:]]+apply)' && echo ships || echo reports-only",
     "expect": "reports-only"
   },
   {

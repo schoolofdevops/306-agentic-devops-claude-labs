@@ -1,152 +1,176 @@
 [
   {
     "id": "m14-slo-error-rule-present",
-    "description": "SLO: the error-rate recording rule orders_api:error_rate:5m exists — the SLI is precomputed from the golden-signal metric, not hand-queried per incident",
+    "description": "SLO: the error-rate recording rule orders_api:error_rate:5m exists \u2014 the SLI is precomputed from the golden-signal metric, not hand-queried per incident",
     "command": "grep -Eq 'record:[[:space:]]*orders_api:error_rate:5m' observability/prometheus/rules/slo-orders.yml && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-slo-latency-rule-present",
-    "description": "SLO: the latency recording rule orders_api:latency_p95:5m exists — p95 is a golden signal computed from the request-duration histogram",
+    "description": "SLO: the latency recording rule orders_api:latency_p95:5m exists \u2014 p95 is a golden signal computed from the request-duration histogram",
     "command": "grep -Eq 'record:[[:space:]]*orders_api:latency_p95:5m' observability/prometheus/rules/slo-orders.yml && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-slo-error-budget-alert",
-    "description": "ERROR BUDGET: the SLOErrorBudgetBurn alert fires when error rate exceeds the 1% budget — the alert is a burn threshold, not a raw count",
+    "description": "ERROR BUDGET: the SLOErrorBudgetBurn alert fires when error rate exceeds the 1% budget \u2014 the alert is a burn threshold, not a raw count",
     "command": "grep -A1 'alert:[[:space:]]*SLOErrorBudgetBurn' observability/prometheus/rules/slo-orders.yml | grep -Eq 'orders_api:error_rate:5m[[:space:]]*>[[:space:]]*0\\.01' && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-slo-latency-threshold",
-    "description": "SLO: the latency SLO threshold is 500ms (0.5s) — the objective is a named number the alert gates on, not a vibe",
+    "description": "SLO: the latency SLO threshold is 500ms (0.5s) \u2014 the objective is a named number the alert gates on, not a vibe",
     "command": "grep -A1 'alert:[[:space:]]*SLOLatencyBreach' observability/prometheus/rules/slo-orders.yml | grep -Eq 'orders_api:latency_p95:5m[[:space:]]*>[[:space:]]*0\\.5' && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-golden-signals-metrics-exist",
-    "description": "GOLDEN SIGNALS: orders-api exports the four evidence metrics — request count (traffic+errors), duration histogram (latency), upstream errors — as real Prometheus series",
+    "description": "GOLDEN SIGNALS: orders-api exports the four evidence metrics \u2014 request count (traffic+errors), duration histogram (latency), upstream errors \u2014 as real Prometheus series",
     "command": "grep -q 'orders_api_requests_total' app/orders-api/src/metrics.py && grep -q 'orders_api_request_duration_seconds' app/orders-api/src/metrics.py && grep -q 'orders_api_upstream_errors_total' app/orders-api/src/metrics.py && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-retry-metric-exists",
-    "description": "EVIDENCE: the upstream retry counter orders_api_upstream_retries_total exists — the retry storm is measurable, not inferred from logs alone",
+    "description": "EVIDENCE: the upstream retry counter orders_api_upstream_retries_total exists \u2014 the retry storm is measurable, not inferred from logs alone",
     "command": "grep -q 'orders_api_upstream_retries_total' app/orders-api/src/metrics.py && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-bounded-query-window",
-    "description": "ANTI-FIREHOSE: the SLI queries are bounded by a 5m rate window and aggregated (sum/by le) — a bounded question, not sum(everything)",
+    "description": "ANTI-FIREHOSE: the SLI queries are bounded by a 5m rate window and aggregated (sum/by le) \u2014 a bounded question, not sum(everything)",
     "command": "grep -Eq 'rate\\(orders_api_requests_total.*\\[5m\\]\\)' observability/prometheus/rules/slo-orders.yml && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-retry-amplification-config",
-    "description": "RETRY STORM: the retry-storm fixture raises RETRY_COUNT to 10 and TIMEOUT_MS to 30000 — the causal change is the retry config, provable from the fixture, not a guess",
+    "description": "RETRY STORM: the retry-storm fixture raises RETRY_COUNT to 10 and TIMEOUT_MS to 30000 \u2014 the causal change is the retry config, provable from the fixture, not a guess",
     "command": "grep -Eq 'RETRY_COUNT=10' fixtures/fault-configs/retry-storm.env && grep -Eq 'TIMEOUT_MS=30000' fixtures/fault-configs/retry-storm.env && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-retry-client-backoff",
-    "description": "MECHANISM: the inventory client retries retry_count+1 times with exponential backoff — 10 retries + a 30s timeout is an 11x upstream amplifier, readable in source",
+    "description": "MECHANISM: the inventory client retries retry_count+1 times with exponential backoff \u2014 10 retries + a 30s timeout is an 11x upstream amplifier, readable in source",
     "command": "grep -Eq 'range\\(self\\.settings\\.retry_count \\+ 1\\)' app/orders-api/src/inventory_client.py && grep -q '2 \\*\\* attempt' app/orders-api/src/inventory_client.py && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-evidence-packet-valid",
-    "description": "EVIDENCE PACKET: a well-formed sre-investigator packet (hypothesis + sources + out_of_scope) validates — a claim with provenance is evidence, not decoration",
+    "description": "EVIDENCE PACKET: a well-formed sre-investigator packet (hypothesis + sources + out_of_scope) validates \u2014 a claim with provenance is evidence, not decoration",
     "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"ops-lead\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"degraded\",\"checks\":{\"healthz\":true},\"hypothesis\":\"retry config amplifies upstream latency into a storm\",\"confidence\":\"high\",\"sources\":[\"fixtures/fault-configs/retry-storm.env\",\"app/orders-api/src/inventory_client.py:20\"]},\"recommendations\":[\"lower RETRY_COUNT\"],\"out_of_scope\":[\"did not check DB saturation\"]}' | bash scripts/evidence-validate.sh >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-evidence-packet-unsourced-rejected",
-    "description": "PROVENANCE: an evidence packet with a confident hypothesis and NO sources is rejected (exit 4) — an assertion dressed as evidence is contamination",
+    "description": "PROVENANCE: an evidence packet with a confident hypothesis and NO sources is rejected (exit 4) \u2014 an assertion dressed as evidence is contamination",
     "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"ops-lead\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"down\",\"checks\":{},\"hypothesis\":\"the database is out of memory\",\"confidence\":\"high\",\"sources\":[]},\"recommendations\":[],\"out_of_scope\":[]}' | bash scripts/evidence-validate.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-hypotheses-corroborated",
-    "description": "HYPOTHESIS SYNTHESIS: three independent dimensions that converge on the retry-config root cause from their OWN evidence yield verdict=corroborated — real agreement, not an echo",
+    "description": "HYPOTHESIS SYNTHESIS: three independent dimensions that converge on the retry-config root cause from their OWN evidence yield verdict=corroborated \u2014 real agreement, not an echo",
     "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"inventory_client.py:20\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"medium\",\"sources\":[\"kubectl top pods\"],\"derived_from\":null},{\"dimension\":\"recent-change\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"retry-storm.env\"],\"derived_from\":null}]' | bash scripts/synthesize-hypotheses.sh 2>/dev/null | grep -Eq 'verdict=corroborated' && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-consensus-theater-rejected",
-    "description": "FALSIFY, DON'T ECHO: a packet derived_from a peer's hypothesis (not its own evidence) is rejected as consensus theater (exit 4) — three echoes are one guess, not three confirmations",
+    "description": "FALSIFY, DON'T ECHO: a packet derived_from a peer's hypothesis (not its own evidence) is rejected as consensus theater (exit 4) \u2014 three echoes are one guess, not three confirmations",
     "command": "printf '[{\"dimension\":\"application-retry\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"inventory_client.py:20\"],\"derived_from\":null},{\"dimension\":\"platform-resource\",\"root_cause\":\"retry-config\",\"status\":\"supported\",\"confidence\":\"high\",\"sources\":[\"peer said so\"],\"derived_from\":\"application-retry\"}]' | bash scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-sre-role-readonly",
-    "description": "AUTHORITY: the sre-investigator role has no Edit/Write tool — the investigator produces evidence and recommends a fix, it never applies one",
+    "description": "AUTHORITY: the sre-investigator role has no Edit/Write tool \u2014 the investigator produces evidence and recommends a fix, it never applies one",
     "command": "grep -Eq 'disallowedTools:.*\"Edit\".*\"Write\"' .claude/agents/sre-investigator.md && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-alertmanager-file-receiver",
-    "description": "ALERTING: alertmanager routes to a file/webhook receiver (no human paged in the lab) — alerts are captured as evidence, the routing is real",
+    "description": "ALERTING: alertmanager routes to a file/webhook receiver (no human paged in the lab) \u2014 alerts are captured as evidence, the routing is real",
     "command": "grep -Eq 'receiver:[[:space:]]*file-logger' observability/alertmanager/alertmanager.yml && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m14-alert-correlate-skill-present",
-    "description": "YOUR SKILL: .claude/skills/alert-correlate/SKILL.md exists — the correlation procedure is an artifact the next investigation loads, not something re-derived under pressure",
+    "description": "YOUR SKILL: .claude/skills/alert-correlate/SKILL.md exists \u2014 the correlation procedure is an artifact the next investigation loads, not something re-derived under pressure",
     "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] && echo present || echo missing",
     "expect": "present"
   },
   {
     "id": "m14-skill-trigger-wording",
-    "description": "YOUR SKILL: the description begins 'Use when' — the frontmatter is written as an invocation trigger, which is what makes a skill fire on relevance",
+    "description": "YOUR SKILL: the description begins 'Use when' \u2014 the frontmatter is written as an invocation trigger, which is what makes a skill fire on relevance",
     "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; grep -qE '^description: *Use when' .claude/skills/alert-correlate/SKILL.md && echo triggered || echo untriggered",
     "expect": "triggered"
   },
   {
     "id": "m14-skill-queries-bounded",
-    "description": "ANTI-FIREHOSE: no unbounded matchers, and raw counters are queried through a range selector — an unbounded query is a context flood, not evidence",
+    "description": "ANTI-FIREHOSE: no unbounded matchers, and raw counters are queried through a range selector \u2014 an unbounded query is a context flood, not evidence",
     "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; b=$(grep -oE '\\[\\$?\\{?window\\}?\\]|\\[[0-9]+[smh]\\]' .claude/skills/alert-correlate/SKILL.md | wc -l | tr -d ' '); u=$(grep -E '^[[:space:]]*(Q |curl )' .claude/skills/alert-correlate/SKILL.md | grep -c '__name__=~'); [ \"$b\" -ge 2 ] && [ \"$u\" -eq 0 ] && echo bounded || echo unbounded",
     "expect": "bounded"
   },
   {
     "id": "m14-skill-names-four-signals",
-    "description": "YOUR SKILL: all four golden signals are named as queries — latency, traffic, errors, saturation",
-    "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; ok=1; for k in latency_p95 requests_total error_rate upstream_retries; do grep -q \"$k\" .claude/skills/alert-correlate/SKILL.md || ok=0; done; [ \"$ok\" -eq 1 ] && echo complete || echo incomplete",
+    "description": "YOUR SKILL: all four golden signals are named, each with the command that reads it \u2014 latency, traffic, errors, saturation",
+    "command": "S=.claude/skills/alert-correlate/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; ok=1; for k in latency traffic error saturation; do grep -qi \"$k\" $S || ok=0; done; n=$(grep -cE 'curl|grep|docker compose logs' $S); { [ \"$ok\" -eq 1 ] && [ \"$n\" -ge 4 ]; } && echo complete || echo incomplete",
     "expect": "complete"
   },
   {
     "id": "m14-skill-declares-trace-gap",
-    "description": "HONEST GAP: the skill declares that distributed traces are unavailable — a skill that silently omits a telemetry type will be trusted for a question it cannot answer",
+    "description": "HONEST GAP: the skill declares that distributed traces are unavailable \u2014 a skill that silently omits a telemetry type will be trusted for a question it cannot answer",
     "command": "[ -f .claude/skills/alert-correlate/SKILL.md ] || { echo missing; exit 0; }; grep -qi 'trace' .claude/skills/alert-correlate/SKILL.md && echo declared || echo silent",
     "expect": "declared"
   },
   {
     "id": "m14-learner-packet-validates",
-    "description": "YOUR PACKET: the evidence packet your agent produced passes evidence-validate.sh — same validator a human investigator's output must pass",
-    "command": "[ -f agentops/incidents/inc-002-packet.json ] || { echo missing; exit 0; }; scripts/evidence-validate.sh agentops/incidents/inc-002-packet.json >/dev/null 2>&1 && echo valid || echo invalid",
+    "description": "YOUR PACKET: the evidence packet your agent produced passes evidence-validate.sh \u2014 same validator a human investigator's output must pass",
+    "command": "P=$(ls agentops/incidents/[iI][nN][cC]-002-packet.json 2>/dev/null | head -1); [ -n \"$P\" ] || { echo missing; exit 0; }; scripts/evidence-validate.sh \"$P\" >/dev/null 2>&1 && echo valid || echo invalid",
     "expect": "valid"
   },
   {
     "id": "m14-learner-packet-sources-are-commands",
     "description": "PROVENANCE: every sources[] entry looks like a command that was run, not a sentence describing where you looked",
-    "command": "[ -f agentops/incidents/inc-002-packet.json ] || { echo missing; exit 0; }; jq -e '[.evidence.sources[] | test(\"curl|grep|diff|docker|jq|/\")] | all and (length>0)' agentops/incidents/inc-002-packet.json >/dev/null 2>&1 && echo commands || echo prose",
+    "command": "P=$(ls agentops/incidents/[iI][nN][cC]-002-packet.json 2>/dev/null | head -1); [ -n \"$P\" ] || { echo missing; exit 0; }; jq -e '[.evidence.sources[] | test(\"curl|grep|diff|docker|jq|/\")] | all and (length>0)' \"$P\" >/dev/null 2>&1 && echo commands || echo prose",
     "expect": "commands"
   },
   {
     "id": "m14-learner-packet-declares-scope",
-    "description": "YOUR PACKET: out_of_scope is non-empty — it names what this investigation did not cover",
-    "command": "[ -f agentops/incidents/inc-002-packet.json ] || { echo missing; exit 0; }; jq -e '.out_of_scope | length > 0' agentops/incidents/inc-002-packet.json >/dev/null 2>&1 && echo declared || echo empty",
+    "description": "YOUR PACKET: out_of_scope is non-empty \u2014 it names what this investigation did not cover",
+    "command": "P=$(ls agentops/incidents/[iI][nN][cC]-002-packet.json 2>/dev/null | head -1); [ -n \"$P\" ] || { echo missing; exit 0; }; jq -e '.out_of_scope | length > 0' \"$P\" >/dev/null 2>&1 && echo declared || echo empty",
     "expect": "declared"
   },
   {
-    "id": "m14-learner-hypotheses-independent",
-    "description": "NO CONSENSUS THEATER: every hypothesis carries derived_from null — three agents that read each other are one agent with extra steps",
-    "command": "[ -f agentops/incidents/inc-002-hypotheses.json ] || { echo missing; exit 0; }; jq -e '[.[] | .derived_from] | all(. == null)' agentops/incidents/inc-002-hypotheses.json >/dev/null 2>&1 && echo independent || echo derivative",
-    "expect": "independent"
+    "id": "m14-investigator-can-invoke-skills",
+    "description": "HARNESS: the sre-investigator role carries the Skill tool \u2014 the role whose job IS running incident-triage could not invoke it until this module, and would have improvised something that looks the same",
+    "command": "grep -E '^tools:' .claude/agents/sre-investigator.md 2>/dev/null | grep -q '\"Skill\"' && echo capable || echo silently-degraded",
+    "expect": "capable"
   },
   {
-    "id": "m14-learner-hypotheses-synthesize",
-    "description": "SYNTHESIS: synthesize-hypotheses.sh accepts your three packets and returns a verdict — the existing script, unmodified, judging your agents' output",
-    "command": "[ -f agentops/incidents/inc-002-hypotheses.json ] || { echo missing; exit 0; }; scripts/synthesize-hypotheses.sh agentops/incidents/inc-002-hypotheses.json 2>/dev/null | grep -q '^verdict=' && echo synthesized || echo rejected",
-    "expect": "synthesized"
+    "id": "m14-all-roles-can-invoke-skills",
+    "description": "HARNESS: every role in the repository carries Skill \u2014 a read-only reviewer without it reads its house procedure as a plain file",
+    "command": "m=0; for f in .claude/agents/*.md; do grep -q '\"Skill\"' \"$f\" || m=1; done; [ $m -eq 0 ] && echo all-capable || echo some-degraded",
+    "expect": "all-capable"
+  },
+  {
+    "id": "m14-brief-authored",
+    "description": "YOUR BRIEF: the investigation brief exists and states what done means \u2014 written before the agent was asked anything",
+    "command": "B=$(ls agentops/incidents/*BRIEF*.md agentops/incidents/*brief*.md 2>/dev/null | head -1); [ -n \"$B\" ] || { echo missing; exit 0; }; grep -qi 'done means' \"$B\" && echo authored || echo incomplete",
+    "expect": "authored"
+  },
+  {
+    "id": "m14-packet-cites-the-retry-policy",
+    "description": "YOUR PACKET: a source names the retry configuration \u2014 three retries against a five-second upstream is what turns one slow call into a storm, and it is the link the diagnosis rests on",
+    "command": "P=$(ls agentops/incidents/[iI][nN][cC]-002-packet.json 2>/dev/null | head -1); [ -n \"$P\" ] || { echo missing; exit 0; }; jq -e '[.evidence.sources[] | test(\"RETRY|retry\")] | any' \"$P\" >/dev/null 2>&1 && echo cited || echo unsourced",
+    "expect": "cited"
+  },
+  {
+    "id": "m14-skill-declares-the-trace-gap",
+    "description": "YOUR SKILL: the correlation skill declares what it cannot see \u2014 a stack with no traces that never says so keeps producing packets which assume otherwise",
+    "command": "S=.claude/skills/alert-correlate/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -qiE 'trace' $S && grep -qiE 'cannot see|do not have|no trace|not available' $S && echo declared || echo silent",
+    "expect": "declared"
+  },
+  {
+    "id": "m14-skill-never-remediates",
+    "description": "AUTHORITY: the correlation skill collects and stops \u2014 remediation is a different authority, and the role that produced the packet cannot write at all",
+    "command": "S=.claude/skills/alert-correlate/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -qiE 'never (remediate|fix)|collects? (only|and stops)|read-only' $S && echo bounded || echo unbounded",
+    "expect": "bounded"
   }
 ]

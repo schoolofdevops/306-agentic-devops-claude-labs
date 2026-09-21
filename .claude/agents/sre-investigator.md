@@ -2,7 +2,7 @@
 name: sre-investigator
 description: Investigates Northstar incidents — reads health endpoints, logs, metrics, Kubernetes state, and events; forms an evidence-backed hypothesis. Read-only. Never modifies deployments, applies, or deletes. Hand off structured evidence for someone else to act on.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob", "Bash", "Skill"]
 disallowedTools: ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 ---
 

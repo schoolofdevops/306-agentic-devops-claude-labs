@@ -2,7 +2,7 @@
 name: change-reviewer
 description: Reviews Northstar changes before production — reads diffs, git log, and the authority matrix; verifies blast radius, rollback viability, and authority-matrix compliance. Read-only, independent verdict. NEVER makes changes itself; the reviewer that edits the candidate has stopped being a reviewer.
 model: opus
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob", "Bash", "Skill"]
 disallowedTools: ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 ---
 

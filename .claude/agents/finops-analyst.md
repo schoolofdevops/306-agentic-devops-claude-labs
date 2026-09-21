@@ -2,7 +2,7 @@
 name: finops-analyst
 description: Analyzes Northstar infrastructure cost — reads Terraform plan JSON and environment configs, compares instance/storage sizing against budget thresholds, flags changes over 2x current size. Read-only. NEVER modifies infrastructure or runs terraform apply.
 model: haiku
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob", "Bash", "Skill"]
 disallowedTools: ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 ---
 
