@@ -19,7 +19,7 @@
   },
   {
     "id": "m9dd-finops-cannot-write",
-    "description": "FORBIDDEN: the FinOps analyst CANNOT apply or edit infrastructure — it reads plans and returns a number, it never changes the estate",
+    "description": "FORBIDDEN: the FinOps analyst CANNOT apply or edit infrastructure — it reads plans and returns a number, it never changes the infrastructure",
     "command": "scripts/role-authority-check.sh finops-analyst write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
     "expect": "pass"
   },

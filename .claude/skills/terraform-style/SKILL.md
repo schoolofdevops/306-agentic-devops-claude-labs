@@ -1,11 +1,11 @@
 ---
 name: terraform-style
-description: Use when authoring or modifying Terraform in the Northstar estate (anything under infra/) — encodes the house HCL conventions, the security baselines that are not negotiable, the exact AWS vocabulary that prevents the common generation errors, and the offline verification contract. Produces or corrects HCL; never applies.
+description: Use when authoring or modifying Terraform in the Northstar infrastructure (anything under infra/) — encodes the house HCL conventions, the security baselines that are not negotiable, the exact AWS vocabulary that prevents the common generation errors, and the offline verification contract. Produces or corrects HCL; never applies.
 ---
 
 # terraform-style
 
-The house style for Northstar's Terraform estate. Read this **before** writing a line of HCL under `infra/`,
+The house style for Northstar's Terraform infrastructure. Read this **before** writing a line of HCL under `infra/`,
 and check generated HCL against it before saving.
 
 This skill exists because a competent-looking module is not a house-consistent one. Reviewers should be
@@ -16,7 +16,7 @@ spending their attention on blast radius and cost, not on whether you called the
 - `target` — the module directory being authored or changed (e.g. `infra/modules/read-replica`).
 - `harness` — the verification directory that calls the module and holds the offline provider block
   (e.g. `infra/modules/read-replica/tests`). This is where `init`, `validate`, `test` and `plan` run.
-- `estate` — the existing modules to match, always `infra/modules/` (`compute`, `database`, `networking`, `storage`).
+- `infrastructure` — the existing modules to match, always `infra/modules/` (`compute`, `database`, `networking`, `storage`).
 
 ## Deterministic zone — collect facts
 
@@ -77,7 +77,7 @@ grep -A2 '^variable' infra/modules/database/variables.tf | head -20
   `tags = { Name = "${var.project}-${var.environment}-<role>" }`.
 
 ### Security baselines — hardcoded, not variabilized
-These are properties of the estate, not choices a caller makes. Writing them as variables is itself the
+These are properties of the infrastructure, not choices a caller makes. Writing them as variables is itself the
 finding, because it turns a guarantee into a default someone can override:
 - `storage_encrypted = true` on every storage-bearing resource.
 - `publicly_accessible` is never set to `true` on a database.
@@ -90,7 +90,7 @@ finding, because it turns a guarantee into a default someone can override:
 
 ## Exact AWS vocabulary — use these strings verbatim
 
-Most generation failures in this estate are vocabulary, not logic. These are the values that are correct;
+Most generation failures in this infrastructure are vocabulary, not logic. These are the values that are correct;
 anything near-miss will validate and then behave wrongly or fail at plan time.
 
 | Thing | Correct | Common wrong answer |
@@ -107,7 +107,7 @@ anything near-miss will validate and then behave wrongly or fail at plan time.
 
 ## Offline verification contract
 
-This estate is authored and verified without AWS credentials. Two mechanisms, and they answer different
+This infrastructure is authored and verified without AWS credentials. Two mechanisms, and they answer different
 questions — do not substitute one for the other.
 
 **`terraform test` with `mock_provider`** answers *"is the module internally correct?"* Write the test
@@ -117,7 +117,7 @@ first; the resource addresses asserted in the test become the contract the HCL m
 mock_provider "aws" {}
 ```
 
-**A credential-skipped `plan`** answers *"what would this do to the estate?"* and is what produces the plan
+**A credential-skipped `plan`** answers *"what would this do to the infrastructure?"* and is what produces the plan
 JSON the review chain reads. Use exactly this provider block for offline planning:
 
 ```hcl
@@ -185,6 +185,6 @@ finding remains.
 ## Stop conditions
 
 - If `terraform validate` fails, report the error and stop. Do not offer unvalidated HCL for review.
-- If the target directory is outside `infra/`, stop — this skill governs the Terraform estate only.
+- If the target directory is outside `infra/`, stop — this skill governs the Terraform infrastructure only.
 - If a security baseline cannot be satisfied without changing the module's purpose, stop and say so
   explicitly. That is a design question for a human, not a style fix.

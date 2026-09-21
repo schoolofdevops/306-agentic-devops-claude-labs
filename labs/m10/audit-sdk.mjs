@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// audit-sdk.mjs — the Terraform estate audit as an Agent SDK fan-out.
+// audit-sdk.mjs — the Terraform infrastructure audit as an Agent SDK fan-out.
 //
 // This is the WORKFLOW from the core lab, rebuilt in code with the Claude Agent
 // SDK (@anthropic-ai/claude-agent-sdk). The shell version (audit-orchestrate.sh)

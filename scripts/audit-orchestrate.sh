@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # audit-orchestrate.sh — a reproducible fan-out/join workflow over the Terraform
-# estate.
+# infrastructure.
 #
 # This is the WORKFLOW topology from the lesson, made concrete: instead of one
-# agent wandering the whole estate (slow, and it will duplicate work and miss
+# agent wandering the whole infrastructure (slow, and it will duplicate work and miss
 # corners), you fan out ONE bounded audit job per IaC module, collect each
 # module's evidence, and JOIN the results into a single normalized report. The
 # orchestration is deterministic — same modules, same order, same shape of report

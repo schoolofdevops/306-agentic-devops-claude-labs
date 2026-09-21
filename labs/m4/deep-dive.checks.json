@@ -1,13 +1,13 @@
 [
   {
     "id": "m4dd-target-cost-fixtures-present",
-    "description": "target-system cost fixtures exist (oversized vs right-sized estate) for the dual-FinOps contrast",
+    "description": "target-system cost fixtures exist (oversized vs right-sized infrastructure) for the dual-FinOps contrast",
     "command": "[ -f infra/fixtures/cost-estimates/estimate-oversize.json ] && [ -f infra/fixtures/cost-estimates/estimate-good.json ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m4dd-target-cost-gap",
-    "description": "the oversized estate's monthly target-system cost is materially higher than the right-sized one (the gap a reviewer agent protects)",
+    "description": "the oversized infrastructure's monthly target-system cost is materially higher than the right-sized one (the gap a reviewer agent protects)",
     "command": "OVER=$(jq -r '.totalMonthlyCost' infra/fixtures/cost-estimates/estimate-oversize.json); GOOD=$(jq -r '.totalMonthlyCost' infra/fixtures/cost-estimates/estimate-good.json); awk -v o=\"$OVER\" -v g=\"$GOOD\" 'BEGIN{ exit !(o > g + 1000) }' && echo pass || echo fail",
     "expect": "pass"
   },

@@ -127,7 +127,7 @@
   },
   {
     "id": "m11-module-authored",
-    "description": "YOUR MODULE: the read-replica module exists with the three-file layout the estate uses (main/variables/outputs)",
+    "description": "YOUR MODULE: the read-replica module exists with the three-file layout the infrastructure uses (main/variables/outputs)",
     "command": "M=infra/modules/read-replica; [ -f $M/main.tf ] && [ -f $M/variables.tf ] && [ -f $M/outputs.tf ] && echo authored || echo missing",
     "expect": "authored"
   },
@@ -139,7 +139,7 @@
   },
   {
     "id": "m11-module-role-label",
-    "description": "HOUSE STYLE: the replica resource carries a role noun, not the generic 'this' — the estate names its primary resource for what it is",
+    "description": "HOUSE STYLE: the replica resource carries a role noun, not the generic 'this' — the infrastructure names its primary resource for what it is",
     "command": "M=infra/modules/read-replica/main.tf; [ -f $M ] || { echo missing; exit 0; }; grep -q 'resource \"aws_db_instance\" \"this\"' $M && echo generic || echo role-named",
     "expect": "role-named"
   },

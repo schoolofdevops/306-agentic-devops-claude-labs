@@ -5,7 +5,7 @@ description: Use when reviewing a terraform plan (a plan JSON from terraform sho
 
 # terraform-plan-review
 
-Review a terraform plan JSON and report what it will actually do to the estate — before anyone runs `apply`. Read-only.
+Review a terraform plan JSON and report what it will actually do to the infrastructure — before anyone runs `apply`. Read-only.
 
 ## Inputs
 
@@ -34,7 +34,7 @@ With the facts collected, form the review:
 
 - **`replacements=0`** → no destroy+create; the plan only adds/updates. Low structural risk.
 - **`replacements>0` with `stateful_destroy>0`** → **HIGH blast radius.** A `STATEFUL_REPLACE` on a `db_instance` means the production database will be destroyed and recreated — data loss and downtime unless there is a snapshot/migration plan. This is the finding that blocks an apply.
-- **Cost:** if `monthly_cost` is far above the known baseline (~\$300/mo for this estate), flag the jump and name the resource driving it.
+- **Cost:** if `monthly_cost` is far above the known baseline (~\$300/mo for this infrastructure), flag the jump and name the resource driving it.
 
 ## Output schema
 

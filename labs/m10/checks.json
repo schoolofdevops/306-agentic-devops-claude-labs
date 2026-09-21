@@ -73,13 +73,13 @@
   },
   {
     "id": "m10-audit-fans-out-and-joins",
-    "description": "the estate audit fans out over all four modules and joins into one normalized report covering each module exactly once (no duplication)",
+    "description": "the infrastructure audit fans out over all four modules and joins into one normalized report covering each module exactly once (no duplication)",
     "command": "scripts/audit-orchestrate.sh | jq -r '.modules_audited | sort | join(\",\")'",
     "expect": "compute,database,networking,storage"
   },
   {
     "id": "m10-audit-collects-real-evidence",
-    "description": "the join collects REAL, sourced evidence: the networking module's seven 0.0.0.0/0 CIDRs and the database module's cost spike sum into the estate verdict",
+    "description": "the join collects REAL, sourced evidence: the networking module's seven 0.0.0.0/0 CIDRs and the database module's cost spike sum into the infrastructure verdict",
     "command": "scripts/audit-orchestrate.sh | jq -r '\"sec=\\(.total_security_findings) cost=\\(.total_cost_delta_usd) verdict=\\(.verdict)\"'",
     "expect": "sec=7 cost=2847 verdict=flag"
   },

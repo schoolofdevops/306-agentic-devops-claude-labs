@@ -29,7 +29,7 @@ kubectl logs -n "${namespace}" -l "${selector}" --tail=50 --all-containers --pre
 Match the collected evidence to the common failure patterns:
 
 - **CrashLoopBackOff** + a non-zero exit in `describe` → the container is dying on start. Read the previous logs for the reason (bad config, missing env var, failed migration).
-- **Running but `0/1 READY`** + `Readiness probe failed: HTTP probe failed with statuscode: 404` → the readiness probe path is wrong (this estate's probe should be `/healthz`, not `/health`). The process is fine; the probe config is not.
+- **Running but `0/1 READY`** + `Readiness probe failed: HTTP probe failed with statuscode: 404` → the readiness probe path is wrong (this infrastructure's probe should be `/healthz`, not `/health`). The process is fine; the probe config is not.
 - **OOMKilled** in `describe` → memory limit too low or a leak. Note if no `resources.limits` are set.
 - **Pending** → no schedulable node / unsatisfiable resource request.
 

@@ -19,7 +19,7 @@ governed workbench, and nothing project-specific to Northstar.
 ## What stays project-specific (does NOT ship in the starter)
 
 - Incident tickets (`incidents/`) — specific to Northstar's systems.
-- Fault fixtures and plan JSON (`fixtures/`, `infra/fixtures/`) — Northstar's estate.
+- Fault fixtures and plan JSON (`fixtures/`, `infra/fixtures/`) — Northstar's infrastructure.
 - The answer key (`evals/retry-storm-key.json`) — graded against Northstar's incident.
 - Service source (`app/`, `platform/helm/`) — the product, not the operating layer.
 

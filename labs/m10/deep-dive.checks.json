@@ -19,7 +19,7 @@
   },
   {
     "id": "m10dd-sdk-matches-shell-workflow",
-    "description": "EQUIVALENCE: the SDK fan-out and the shell workflow produce the IDENTICAL estate evidence and verdict — same orchestration shape, two implementations",
+    "description": "EQUIVALENCE: the SDK fan-out and the shell workflow produce the IDENTICAL infrastructure evidence and verdict — same orchestration shape, two implementations",
     "command": "a=$(node labs/m10/audit-sdk.mjs | jq -S '{modules_audited,total_security_findings,total_cost_delta_usd,verdict,evidence}'); b=$(scripts/audit-orchestrate.sh | jq -S '{modules_audited,total_security_findings,total_cost_delta_usd,verdict,evidence}'); [ \"$a\" = \"$b\" ] && echo pass || echo fail",
     "expect": "pass"
   },
