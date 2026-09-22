@@ -9,13 +9,21 @@
 # same scenario N times and reports the DISTRIBUTION of composite scores, so the
 # result is a pass-rate with spread, not a lucky green checkmark.
 #
-# Determinism for a graded lab: real trials would call the model and vary
-# genuinely. To keep the lab reproducible on any machine, this script derives a
-# stable per-trial jitter from a --seed (default 42) and applies it to the
-# recorded run's evidence-coverage, modelling the realistic variance where a
-# nondeterministic run sometimes checks one fewer evidence dimension. Same seed,
-# same distribution — so the confidence interval a learner sees is the one the
-# checks expect, while the SHAPE (a band, not a point) is the real lesson.
+# Determinism for a graded lab: real trials call the model and vary genuinely,
+# and the lab has the learner do exactly that. This script is the REPRODUCIBLE
+# counterpart — it replays one recorded run and applies a stable per-trial jitter
+# derived from --seed (default 42) to the recorded evidence-coverage, so the band
+# a learner sees is the band the checks expect on any machine.
+#
+# Be clear about what this is: the drop RATE here is a modelling choice, not a
+# measurement. Measured against six live runs of the same role on the same
+# incident (planning/lab-tests/m18-project.md), the real distribution was
+# pass_rate 1.0 / min 0.90, while this model reports a wider, more pessimistic
+# band. Use it to see that a distribution is not a point — never to estimate how
+# often your own agent fails. For that, run it N times and score each run.
+#
+# What genuinely varied in those live runs was cost (87% spread) and wall-clock
+# (96%), neither of which this script models at all.
 #
 # Input:  a run record JSON (fixtures/runs/*.json) + a trial count.
 # Output: a distribution summary — trials, pass-rate, min/mean/max composite.
@@ -64,10 +72,18 @@ N_DIMS="$(echo "$BASE_DIMS" | jq 'length')"
 scores=()
 pass=0
 for t in $(seq 1 "$TRIALS"); do
-  # Deterministic per-trial jitter: a hash of seed+trial, mod 3. On ~1/3 of
-  # trials (jitter==0) the run drops its last-checked evidence dimension,
-  # modelling the variance where the same agent sometimes under-collects.
-  jitter=$(( (SEED * 31 + t * 7) % 3 ))
+  # Deterministic per-trial jitter: a CRC32 of "seed:trial". On ~1/5 of trials
+  # (jitter==0) the run drops its last-checked evidence dimension, modelling the
+  # variance where the same agent sometimes under-collects.
+  #
+  # The hash must actually depend on the seed. The previous form was
+  #   jitter=$(( (SEED * 31 + t * 7) % 3 ))
+  # and 31 and 7 are both congruent to 1 mod 3, so it collapsed to
+  # (SEED + t) % 3 — over N trials that drops the SAME NUMBER of dimensions for
+  # every seed, only at different trial indices. Every seed therefore produced an
+  # identical pass_rate/min/mean/max, which made --seed inert while appearing to
+  # work. Verified against seeds 42, 7, 999 and 12345: byte-identical output.
+  jitter=$(( $(printf '%s:%s' "$SEED" "$t" | cksum | awk '{print $1}') % 5 ))
   if [ "$jitter" -eq 0 ] && [ "$N_DIMS" -gt 0 ]; then
     TRIAL_RUN="$(echo "$RUN" | jq --argjson n "$N_DIMS" \
       '.claim.checked_dimensions |= .[0:($n-1)]')"
