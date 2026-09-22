@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# kubectl, with a ceiling. Unbounded reads are a context-budget grenade:
+# `kubectl get pods -A -o yaml` on a real cluster is tens of thousands of tokens.
+set -euo pipefail
+MAX_LINES="${MAX_LINES:-200}"
+KUBECONFIG_FILE="${AGENT_KUBECONFIG:-platform/kubeconfigs/agent-readonly.yaml}"
+
+for arg in "$@"; do
+  case "$arg" in
+    -A|--all-namespaces) echo "REFUSED: -A is unbounded. Name a namespace." >&2; exit 2 ;;
+  esac
+done
+
+out=$(kubectl --kubeconfig="$KUBECONFIG_FILE" "$@" 2>&1) || rc=$?
+n=$(printf '%s\n' "$out" | wc -l | tr -d ' ')
+printf '%s\n' "$out" | head -n "$MAX_LINES"
+if [ "$n" -gt "$MAX_LINES" ]; then
+  echo "--- TRUNCATED: $n lines, showed $MAX_LINES. Narrow the query. ---"
+fi
+exit "${rc:-0}"
