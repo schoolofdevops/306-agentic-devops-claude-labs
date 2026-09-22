@@ -85,20 +85,20 @@
   },
   {
     "id": "m15-your-brief-states-done",
-    "description": "YOUR BRIEF: agentops/secops/BRIEF.md exists and states what done means for this review",
-    "command": "F=agentops/secops/BRIEF.md; [ -f \"$F\" ] || { echo missing; exit 0; }; grep -qiE 'done' \"$F\" && grep -qiE 'means|definition|criteria|ship' \"$F\" && echo pass || echo incomplete",
+    "description": "YOUR BRIEF: agentops/secops/SPEC.md exists and states what done means for this review",
+    "command": "F=agentops/secops/SPEC.md; [ -f \"$F\" ] || { echo missing; exit 0; }; grep -qiE 'done' \"$F\" && grep -qiE 'means|definition|criteria|ship' \"$F\" && echo pass || echo incomplete",
     "expect": "pass"
   },
   {
     "id": "m15-your-findings-ranks-requests-above-pyyaml",
-    "description": "YOUR FINDINGS: agentops/secops/findings.json ranks the CVSS 6.1 requests finding (CVE-2023-32681) ABOVE the CVSS 9.8 PyYAML finding (CVE-2020-14343) — the measurable claim this module makes",
-    "command": "F=agentops/secops/findings.json; [ -f \"$F\" ] || { echo missing; exit 0; }; OUT=$(jq -r 'def rankof(pat): ([.[] | select(((.finding // \"\")+\" \"+(.component // \"\")+\" \"+(.evidence // \"\")) | test(pat)) | (.rank|tostring|tonumber?)] | first); (rankof(\"CVE-2023-32681\")) as $req | (rankof(\"CVE-2020-14343\")) as $pyyaml | if ($req != null and $pyyaml != null and $req < $pyyaml) then \"pass\" else \"fail\" end' \"$F\" 2>/dev/null); echo \"${OUT:-fail}\"",
+    "description": "YOUR FINDINGS: agentops/secops/findings.md ranks the CVSS 6.1 requests finding (CVE-2023-32681) ABOVE the CVSS 9.8 PyYAML finding (CVE-2020-14343) — the measurable claim this module makes",
+    "command": "F=agentops/secops/findings.md; [ -f \"$F\" ] || { echo missing; exit 0; }; OUT=$(jq -r 'def rankof(pat): ([.[] | select(((.finding // \"\")+\" \"+(.component // \"\")+\" \"+(.evidence // \"\")) | test(pat)) | (.rank|tostring|tonumber?)] | first); (rankof(\"CVE-2023-32681\")) as $req | (rankof(\"CVE-2020-14343\")) as $pyyaml | if ($req != null and $pyyaml != null and $req < $pyyaml) then \"pass\" else \"fail\" end' \"$F\" 2>/dev/null); echo \"${OUT:-fail}\"",
     "expect": "pass"
   },
   {
     "id": "m15-your-findings-record-reachability-evidence",
-    "description": "YOUR FINDINGS: every reachability verdict (yes/no) in findings.json carries file:line evidence, not an eyeballed guess",
-    "command": "F=agentops/secops/findings.json; [ -f \"$F\" ] || { echo missing; exit 0; }; OUT=$(jq -r '[.[] | select(.reachable==\"yes\" or .reachable==\"no\")] as $arr | (($arr|length) > 0) and ($arr | map((.evidence // \"\") | test(\":[0-9]+\")) | all)' \"$F\" 2>/dev/null); echo \"${OUT:-false}\"",
+    "description": "YOUR FINDINGS: every reachability verdict (yes/no) in findings.md carries file:line evidence, not an eyeballed guess",
+    "command": "F=agentops/secops/findings.md; [ -f \"$F\" ] || { echo missing; exit 0; }; OUT=$(jq -r '[.[] | select(.reachable==\"yes\" or .reachable==\"no\")] as $arr | (($arr|length) > 0) and ($arr | map((.evidence // \"\") | test(\":[0-9]+\")) | all)' \"$F\" 2>/dev/null); echo \"${OUT:-false}\"",
     "expect": "true"
   },
   {
