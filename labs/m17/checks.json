@@ -121,14 +121,32 @@
   },
   {
     "id": "m17-triage-calls-a-model",
-    "description": "NO FAKE HYPOTHESIS: triage-run.sh invokes a real model with a schema instead of templating the finding with jq",
-    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q 'unattended read-only triage collected evidence for' scripts/triage-run.sh && echo templated || { grep -q 'json-schema' scripts/triage-run.sh && echo model-call || echo neither; }",
-    "expect": "model-call"
+    "description": "NO FAKE HYPOTHESIS: triage-run.sh runs the GOVERNED ROLE instead of templating the finding with jq — a bare model call is a distinct, named failure here, not a pass",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q 'unattended read-only triage collected evidence for' scripts/triage-run.sh && echo templated || { grep -q -- '--agent' scripts/triage-run.sh && echo governed-role || { grep -q 'claude -p' scripts/triage-run.sh && echo bare-model || echo neither; }; }",
+    "expect": "governed-role"
+  },
+  {
+    "id": "m17-triage-runs-sre-investigator",
+    "description": "THE ROLE IS THE ONE YOU BUILT: the loop dispatches sre-investigator specifically — the read-only role carrying the incident-triage skill and the ops-lead handoff contract",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -qE -- '--agent[[:space:]]+\\x27?\"?sre-investigator' scripts/triage-run.sh && echo yes || echo no",
+    "expect": "yes"
+  },
+  {
+    "id": "m17-no-schema-under-a-role",
+    "description": "NO SCHEMA UNDER A ROLE: the loop does not pass --json-schema — a role suppresses structured_output, so the flag returns null with is_error false and nothing says so",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q 'claude -p' scripts/triage-run.sh || { echo no-call-yet; exit 0; }; grep -q 'json-schema' scripts/triage-run.sh && echo present || echo absent",
+    "expect": "absent"
+  },
+  {
+    "id": "m17-triage-pins-the-model",
+    "description": "PINNED TIER: the unattended call pins --model — an always-on loop inherits the default tier thousands of times before anyone reads the bill",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q -- '--model' scripts/triage-run.sh && echo pinned || echo unpinned",
+    "expect": "pinned"
   },
   {
     "id": "m17-triage-validates-before-write",
-    "description": "FAIL CLOSED ON THE MODEL: the model's structured output is extracted and validated before it reaches disk — a packet the model got wrong must never be written",
-    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q 'structured_output' scripts/triage-run.sh && grep -q 'evidence-validate' scripts/triage-run.sh && echo guarded || echo unguarded",
+    "description": "FAIL CLOSED ON THE MODEL: the packet is extracted from the fenced .result and validated before it reaches disk — a packet the model got wrong, or never fenced at all, must never be written",
+    "command": "[ -f scripts/triage-run.sh ] || { echo missing; exit 0; }; grep -q '\\.result' scripts/triage-run.sh && grep -q 'evidence-validate' scripts/triage-run.sh && ! grep -q '\\.structured_output' scripts/triage-run.sh && echo guarded || echo unguarded",
     "expect": "guarded"
   },
   {
