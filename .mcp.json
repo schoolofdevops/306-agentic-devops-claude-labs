@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "secfindings": {
+      "command": "node",
+      "args": ["platform/mcp-servers/secfindings/server.js"],
+      "description": "Read-only query interface over the M15 security scan corpus (trivy + gitleaks + posture). No write tool exists."
+    }
+  }
+}

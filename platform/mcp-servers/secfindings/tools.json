@@ -1,0 +1,10 @@
+{
+  "server": "secfindings",
+  "description": "Read-only query interface over the combined trivy/gitleaks/posture scan corpus (agentops/secops/scan-corpus.json). Query tools only; no write/mutate/rank tool exists.",
+  "read_only": true,
+  "tools": [
+    { "name": "findings_query", "kind": "read", "args": ["component?", "severity?", "tool?", "reachable?"] },
+    { "name": "finding_get", "kind": "read", "args": ["id"] },
+    { "name": "corpus_summary", "kind": "read", "args": [] }
+  ]
+}
