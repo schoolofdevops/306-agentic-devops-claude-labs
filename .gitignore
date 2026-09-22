@@ -43,3 +43,6 @@ agentops/capstone/
 agentops/triage-state/
 agentops/runs/
 platform/kubeconfigs/agent-*.yaml
+
+# Agent worktrees (local isolation, never committed)
+.worktrees/
