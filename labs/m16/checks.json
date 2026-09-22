@@ -1,98 +1,200 @@
 [
   {
-    "id": "m16-routing-artifact-present",
-    "description": "the gateway routing config exists as a reviewed artifact — WHICH model serves WHICH traffic class is version-controlled, not hidden in code",
-    "command": "[ -f platform/gateway/routing.yaml ] && yq -e '.routes.support.model' platform/gateway/routing.yaml >/dev/null && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-providers-artifact-present",
-    "description": "the provider+pricing map exists — model tiers resolve to a price and a provider latency profile the four-dials view reads",
-    "command": "[ -f platform/gateway/providers.yaml ] && yq -e '.models.deep.price_per_1m_usd' platform/gateway/providers.yaml >/dev/null && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
     "id": "m16-gateway-diff-present",
-    "description": "the routing-change review gate exists and is executable — a route change is priced as a cost + latency decision, not read as a config typo",
+    "description": "the gateway diff tool exists and is executable \u2014 the route change is priced by a command, not by eye",
     "command": "[ -x scripts/gateway-diff.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m16-diff-flags-support-regression",
-    "description": "REGRESSION: gateway-diff flags the support route moving from fast to deep — the one-line flip the whole incident is about",
-    "command": "scripts/gateway-diff.sh --field changed | jq -e '.[] | select(.route==\"support\") | select(.from==\"fast\" and .to==\"deep\")' >/dev/null && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-diff-verdict-review-required",
-    "description": "REGRESSION: with support on a costlier AND slower tier, the diff verdict is 'review-required' — the change gate refuses to wave it through",
-    "command": "[ \"$(scripts/gateway-diff.sh --field verdict)\" = review-required ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-diff-quantifies-cost-jump",
-    "description": "COST DIAL: the diff attaches a per-day support-workload cost delta to the route flip — the number has an address, not just a total (M11 pattern carried forward)",
-    "command": "[ \"$(scripts/gateway-diff.sh --field support_cost_delta)\" -gt 1000 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
     "id": "m16-dials-present",
-    "description": "the four-dials reader exists and is executable — latency, token cost, rate limits, and quality read together for a route",
+    "description": "the four-dial reporter exists and is executable",
     "command": "[ -x scripts/llm-dials.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
-    "id": "m16-dials-latency-spike",
-    "description": "LATENCY DIAL: on the regressed route the support p95 reads 9500ms — the deep tier's provider latency, far past a support SLO",
-    "command": "[ \"$(scripts/llm-dials.sh dials support --field latency_p95)\" = 9500 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-dials-rate-limit-breach",
-    "description": "RATE-LIMIT DIAL: routing 300k tpm at a provider whose deep-tier ceiling is 120k yields NEGATIVE tpm headroom — the flip silently over-committed the provider limit",
-    "command": "[ \"$(scripts/llm-dials.sh dials support --field tpm_headroom | cut -d. -f1)\" -lt 0 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-split-blames-provider",
-    "description": "PROVIDER vs APPLICATION: splitting the regressed trace shows provider time dominant — the latency is the model, not our code, so the fix is the route not the app",
-    "command": "[ \"$(scripts/llm-dials.sh split fixtures/gateway/traces/support-regressed.json --field dominant)\" = provider ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-split-application-time-unchanged",
-    "description": "PROVIDER vs APPLICATION: application-span time is ~unchanged between baseline and regressed traces (<=400ms both) — falsifies 'our code got slower'",
-    "command": "B=$(scripts/llm-dials.sh split fixtures/gateway/traces/support-baseline.json --field application_ms); R=$(scripts/llm-dials.sh split fixtures/gateway/traces/support-regressed.json --field application_ms); [ \"$B\" -le 400 ] && [ \"$R\" -le 400 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m16-prompt-config-in-git",
-    "description": "PROMPT IN GIT: the support-summarize prompt is a version-controlled artifact, reviewed like code — not a string buried in application source",
-    "command": "[ -f platform/gateway/prompts/support-summarize.txt ] && grep -q 'order ID' platform/gateway/prompts/support-summarize.txt && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
     "id": "m16-promptfoo-gate-present",
-    "description": "the Promptfoo-style regression gate exists and is executable — the quality dial made into a CI check",
+    "description": "the prompt regression gate exists and is executable \u2014 quality is a checked number, never a vibe",
     "command": "[ -x scripts/promptfoo-gate.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
+    "id": "m16-diff-flags-the-route-flip",
+    "description": "DIFF: the tool flags support moving fast -> deep against the baseline routing",
+    "command": "scripts/gateway-diff.sh --baseline fixtures/gateway/routing-baseline.yaml --current platform/gateway/routing.yaml --field json 2>/dev/null | jq -e '.changed[] | select(.route==\"support\" and .from==\"fast\" and .to==\"deep\")' >/dev/null && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-diff-verdict-review-required",
+    "description": "DIFF: the verdict is review-required \u2014 a route change that is both costlier and slower is a cost-and-SLO decision",
+    "command": "[ \"$(scripts/gateway-diff.sh --baseline fixtures/gateway/routing-baseline.yaml --current platform/gateway/routing.yaml --field verdict 2>/dev/null)\" = review-required ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-diff-quantifies-the-cost",
+    "description": "DIFF: the change carries a number \u2014 +$8,946/day, so the recommendation can be a decision rather than an opinion",
+    "command": "n=$(scripts/gateway-diff.sh --baseline fixtures/gateway/routing-baseline.yaml --current platform/gateway/routing.yaml --field json 2>/dev/null | jq -r '.support_cost_delta_per_day_usd'); [ \"$n\" = 8946 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-diff-fails-closed-on-positional-args",
+    "description": "INTERFACE: passing positional arguments to the flag-parsing diff exits 1 fail-closed \u2014 the failure that sent an agent into hand-computing",
+    "command": "scripts/gateway-diff.sh platform/gateway/routing.yaml fixtures/gateway/routing-baseline.yaml >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-dials-latency-spike",
+    "description": "DIAL latency: the current support route reports a 9,500 ms p95 \u2014 ten times the fast tier",
+    "command": "n=$(scripts/llm-dials.sh dials support --field latency_p95 2>/dev/null); [ \"$n\" = 9500 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-dials-rate-limit-negative",
+    "description": "DIAL rate limits: headroom is negative \u2014 the route is over its provider ceiling before any traffic spike, a third independent reason to revert",
+    "command": "n=$(scripts/llm-dials.sh dials support --field tpm_headroom 2>/dev/null); [ -n \"$n\" ] && [ \"${n%%.*}\" -lt 0 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-split-blames-provider",
+    "description": "SPLIT: the regressed trace is provider-dominant \u2014 the model call is slow, so the fix is a routing change and not a code change",
+    "command": "[ \"$(scripts/llm-dials.sh split fixtures/gateway/traces/support-regressed.json --field dominant 2>/dev/null)\" = provider ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-split-application-half-is-small",
+    "description": "SPLIT: the application half stayed small \u2014 our own queueing and assembly is not the problem, which is the half that would have been optimised by guessing",
+    "command": "n=$(scripts/llm-dials.sh split fixtures/gateway/traces/support-regressed.json --field application_ms 2>/dev/null); [ -n \"$n\" ] && [ \"$n\" -lt 1000 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
     "id": "m16-gate-passes-good-set",
-    "description": "QUALITY GATE: the good output set passes every required assertion — verdict pass, exit 0",
-    "command": "scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set good --field verdict",
+    "description": "QUALITY: the regression suite passes the good output set",
+    "command": "[ \"$(scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set good --field verdict 2>/dev/null)\" = pass ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m16-gate-blocks-regressed-set",
-    "description": "QUALITY GATE: the regressed set (invented refund, dropped order ID, guaranteed date) fails required assertions — verdict fail, so CI would block the change",
-    "command": "if scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set regressed --field verdict >/dev/null 2>&1; then echo passed; else echo blocked; fi",
-    "expect": "blocked"
+    "description": "QUALITY: the same suite blocks the regressed set \u2014 a required assertion failing is what makes quality a gate rather than a vibe",
+    "command": "[ \"$(scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set regressed --field verdict 2>/dev/null)\" = fail ] && echo pass || echo fail",
+    "expect": "pass"
   },
   {
-    "id": "m16-learner-diagnosis-recorded",
-    "description": "YOUR DIAGNOSIS: agentops/m16-diagnosis.md names the regressed route, the correct model tier, and the cost or latency evidence — the durable output of this module, since the revert itself is undone at teardown",
-    "command": "D=agentops/m16-diagnosis.md; [ -f $D ] || { echo missing; exit 0; }; ok=1; grep -qi 'support' $D || ok=0; grep -qi 'fast' $D || ok=0; grep -Eqi 'cost|latency|rpm|tpm|p95' $D || ok=0; [ \"$ok\" -eq 1 ] && echo recorded || echo incomplete",
-    "expect": "recorded"
+    "id": "m16-house-standard-present",
+    "description": "the gateway-dials-style house standard exists \u2014 without a written standard the role carries Skill and has nothing to invoke",
+    "command": "[ -f .claude/skills/gateway-dials-style/SKILL.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-standard-carries-the-provenance-rule",
+    "description": "the standard states that a number without its command is not a dial reading \u2014 the rule that turns a fabricated packet into a refusal",
+    "command": "S=.claude/skills/gateway-dials-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi \"guess wearing a dial\" $S && grep -qi 'unknown' $S && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-role-points-at-the-standard",
+    "description": "the mlops-engineer role is held to the standard \u2014 a method that lives only in a role's own prose is a method nobody reviews",
+    "command": "grep -q 'gateway-dials-style' .claude/agents/mlops-engineer.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-role-can-invoke-skills",
+    "description": "the mlops-engineer carries Skill in its tools list \u2014 without it the standard is read as a plain file and never invoked",
+    "command": "grep -Eq '^tools:.*\"Skill\"' .claude/agents/mlops-engineer.md && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-role-cannot-flip-a-route",
+    "description": "AUTHORITY: the mlops-engineer has no write tool \u2014 it reads, prices and recommends; a route flip goes through the change gate and a reviewer",
+    "command": "scripts/role-authority-check.sh mlops-engineer write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-brief-authored",
+    "description": "YOUR BRIEF: platform/gateway/SPEC.md exists and states what done means \u2014 what a recommendation must contain, written before one was produced",
+    "command": "S=platform/gateway/SPEC.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi 'done means' $S && echo authored || echo incomplete",
+    "expect": "authored"
+  },
+  {
+    "id": "m16-brief-is-not-a-claude-md",
+    "description": "YOUR BRIEF: no CLAUDE.md under platform/gateway/ \u2014 a brief is an input to one task, not context injected into every future turn",
+    "command": "[ -f platform/gateway/CLAUDE.md ] && echo present || echo absent",
+    "expect": "absent"
+  },
+  {
+    "id": "m16-brief-demands-provenance",
+    "description": "YOUR BRIEF: the brief requires every number to name the command that produced it",
+    "command": "S=platform/gateway/SPEC.md; [ -f $S ] || { echo missing; exit 0; }; grep -qiE 'names the (exact )?command|command that produced' $S && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-reporters-are-allowed-to-run",
+    "description": "YOUR FIX: the three read-only reporters are in permissions.allow \u2014 the honest path was blocked, and a blocked agent guesses in a format that looks measured",
+    "command": "n=$(jq -r '.permissions.allow[]' .claude/settings.json 2>/dev/null | grep -cE 'gateway-diff\\.sh|llm-dials\\.sh|promptfoo-gate\\.sh'); [ \"$n\" -ge 3 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-quality-dial-names-its-input",
+    "description": "YOUR FIX: the quality dial reports which output set it graded \u2014 until it can name its input it is a rumour, not a dial",
+    "command": "scripts/llm-dials.sh dials support --field json 2>/dev/null | jq -e '.quality.graded_set' >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-quality-dial-tracks-the-set-it-graded",
+    "description": "YOUR FIX: grading the regressed set makes the dial say so \u2014 the repair is attribution, not a hardcoded value",
+    "command": "scripts/llm-dials.sh dials support --field json 2>/dev/null | jq -e '.quality.graded_set' >/dev/null 2>&1 || { echo unrepaired; exit 0; }; scripts/promptfoo-gate.sh evals/promptfoo/support-summarize.yaml --set regressed --field verdict >/dev/null 2>&1; s=$(scripts/llm-dials.sh dials support --field json 2>/dev/null | jq -r '.quality.graded_set'); [ \"$s\" = regressed ] && echo pass || echo \"got-$s\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-recommendation-present",
+    "description": "YOUR DELIVERABLE: a recommendation exists \u2014 the diagnosis was written down in a form a reviewer can act on",
+    "command": "[ -f agentops/gateway/recommendation.json ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-recommendation-names-what-changed",
+    "description": "AUDITABILITY: the recommendation names the route and what it changed from and to \u2014 six weeks later nobody can tell which flip it was about otherwise",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; jq -e '.route and .change.from and .change.to' $R >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-recommendation-reads-all-four-dials",
+    "description": "COVERAGE: at least four dials are recorded \u2014 one dial in isolation is how you ship a route that is faster and bankrupting",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; n=$(jq '[.dials[]?] | length' $R 2>/dev/null); [ -n \"$n\" ] && [ \"$n\" -ge 4 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-every-dial-names-its-command",
+    "description": "PROVENANCE: every dial carries a non-empty source \u2014 a number that cannot name the command that produced it is a guess wearing a dial's clothes",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; bad=$(jq '[.dials[]? | select((.source // \"\") == \"\")] | length' $R 2>/dev/null); [ \"$bad\" = 0 ] && echo pass || echo \"unsourced-$bad\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-recommendation-ran-the-split",
+    "description": "METHOD: the split is recorded and blames the provider half \u2014 never state a cause before the split has run",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; jq -e '(.. | objects | select(has(\"dominant\")) | .dominant) == \"provider\"' $R >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-recommendation-carries-a-number",
+    "description": "ACTIONABLE: the cost of doing nothing is stated as a number \u2014 'revert support to fast' is an opinion; the same sentence with $8,946/day is a decision",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; jq -e '(.cost_of_doing_nothing.value // empty) | numbers' $R >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-recommendation-declares-its-unknowns",
+    "description": "HONESTY: unknowns are listed and not silently empty \u2014 an absent list reads as full coverage, and at least the quality dial is genuinely unknown",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; n=$(jq '[.unknowns[]?] | length' $R 2>/dev/null); [ -n \"$n\" ] && [ \"$n\" -ge 1 ] && echo pass || echo \"got-$n\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-decision-owner-is-not-the-diagnostician",
+    "description": "AUTHORITY: the decision belongs to a reviewer \u2014 the role that priced the change is not the role that approves it",
+    "command": "R=agentops/gateway/recommendation.json; [ -f $R ] || { echo missing; exit 0; }; o=$(jq -r '.decision_owner // \"\"' $R 2>/dev/null); [ -n \"$o\" ] && [ \"$o\" != \"mlops-engineer\" ] && echo pass || echo \"got-$o\"",
+    "expect": "pass"
+  },
+  {
+    "id": "m16-the-route-was-not-flipped-by-the-diagnosis",
+    "description": "AUTHORITY: routing.yaml still carries the regression \u2014 diagnosing a route change never includes flipping it back yourself",
+    "command": "[ \"$(yq -r '.routes.support.model' platform/gateway/routing.yaml 2>/dev/null)\" = deep ] && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

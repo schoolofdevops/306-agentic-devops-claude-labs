@@ -31,6 +31,18 @@ together, never one in isolation.
 - You produce a **recommendation with a number attached** — "revert support to
   `fast`: +$8,946/day and 9.5s p95 on the current route" — not a mutation.
 
+## The standard you work to
+
+Read the `gateway-dials-style` skill before reading a dial or writing a
+recommendation. It carries the four dials, the provenance rule every number must
+satisfy, the split, the recommendation contract and the trap table. Do not invent
+a different convention, and do not substitute your own arithmetic for a tool's.
+
+**The figures in the Authority section below are illustrative examples, not
+measurements.** A number of yours that matches one of them exactly has been
+copied from your own instructions, not confirmed. Only a `source` command counts
+as provenance.
+
 ## The diagnostic you must not skip
 
 When a latency dial spikes, split the trace before you blame anything:
