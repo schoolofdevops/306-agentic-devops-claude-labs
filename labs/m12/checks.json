@@ -98,7 +98,7 @@
   {
     "id": "m12-enforcement-readonly-verbs",
     "description": "ENFORCEMENT: the read-only ClusterRole grants exactly get/list/watch and no write verb — the agent's identity cannot mutate, whatever it intends",
-    "command": "grep -Eq 'verbs: \\[\"get\", \"list\", \"watch\"\\]' platform/kubeconfigs/readonly.yaml && ! grep -Eq '\"(create|update|delete|patch)\"' platform/kubeconfigs/readonly.yaml && echo pass || echo fail",
+    "command": "grep -Eq 'verbs: \\[\"get\", \"list\", \"watch\"\\]' platform/rbac/agent-readonly.yaml && ! grep -Eq '\"(create|update|delete|patch)\"' platform/rbac/agent-readonly.yaml && echo pass || echo fail",
     "expect": "pass"
   },
   {

@@ -9,7 +9,7 @@ kind: ClusterRole
 metadata:
   name: northstar-agent-readonly
 rules:
-  - apiGroups: ["", "apps", "batch", "networking.k8s.io", "events.k8s.io"]
+  - apiGroups: ["", "apps", "batch", "networking.k8s.io", "events.k8s.io", "discovery.k8s.io"]
     resources: ["*"]
     verbs: ["get", "list", "watch"]
 ---
