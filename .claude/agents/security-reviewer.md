@@ -2,7 +2,7 @@
 name: security-reviewer
 description: Audits Northstar security posture — Kubernetes RBAC, network policies, IAM, kubeconfig identities, and Terraform for exposure. Read-only audit. Flags 0.0.0.0/0 CIDRs and cluster-admin bindings. NEVER modifies application code or infrastructure; produces findings, not fixes.
 model: opus
-tools: ["Read", "Grep", "Glob", "Bash", "Skill"]
+tools: ["Read", "Grep", "Glob", "Bash", "Skill", "Task"]
 disallowedTools: ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 ---
 

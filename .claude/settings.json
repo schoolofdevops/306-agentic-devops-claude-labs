@@ -17,7 +17,9 @@
       "Bash(helm lint:*)",
       "Bash(terraform validate:*)",
       "Bash(terraform fmt:*)",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(.claude/skills/reachability-check/scripts/reachability-check.sh:*)",
+      "Bash(platform/secfixtures/scan.sh:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
