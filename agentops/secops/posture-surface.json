@@ -1,0 +1,16 @@
+{
+  "wide_open_ingress": [
+    "platform/policies/network-policies.yaml"
+  ],
+  "cluster_admin": [
+    "platform/policies/resource-quotas.yaml"
+  ],
+  "broad_iam": [
+    "platform/helm/inventory-api/values.yaml"
+  ],
+  "wide_cidr": [
+    "infra/modules/networking/main.tf"
+  ],
+  "count": 4,
+  "verdict": "block"
+}
