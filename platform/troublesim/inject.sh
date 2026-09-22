@@ -20,4 +20,9 @@ fi
 for f in "$(dirname "$0")"/set01/*.yaml; do
   kubectl apply -n "$NS" -f "$f"
 done
+
+# Deliberately fake credential for the honest-limits exercise (Module 12) — see the
+# manifest's own header comment for why this is safe to commit and apply.
+kubectl apply -n "$NS" -f "$(dirname "$0")"/demo-secret.yaml
+
 echo "[INFO] five faults planted in namespace $NS"
