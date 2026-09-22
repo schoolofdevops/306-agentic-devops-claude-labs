@@ -432,7 +432,7 @@ case "$MODULE" in
     ;;
 
   m15)
-    echo "Checking: SecOps & Action Boundaries — the agent authority attestation: declared vs effective vs runtime authority, the five-dimension boundary probes, and the fail-closed unproven rule"
+    echo "Checking: Agentic SecOps — the agent as security analyst: rank findings by reachability and exposure rather than CVSS, correlate across tools, and gate the release deterministically"
     echo ""
 
     CHECKS="$REPO_ROOT/labs/m15/checks.json"
@@ -450,7 +450,7 @@ case "$MODULE" in
     ;;
 
   m15-deep-dive)
-    echo "Checking: Deep Dive — red-team injection cases and telemetry privacy: prove the durable ledger keeps outcome, never content, and a sensitive fixture never reaches it"
+    echo "Checking: Deep Dive — your agent's own supply chain: what the installed plugin skills, MCP tools, hooks and permissions.allow list actually do, against a known-good baseline"
     echo ""
 
     CHECKS="$REPO_ROOT/labs/m15/deep-dive.checks.json"
