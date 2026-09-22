@@ -1,164 +1,122 @@
 [
   {
-    "id": "m12-brief-authored",
-    "description": "YOUR BRIEF: platform/helm/orders-api/SPEC.md exists and states what done means — the requirements are written down before the agent designs anything",
-    "command": "S=platform/helm/orders-api/SPEC.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi 'done means' $S && echo authored || echo incomplete",
-    "expect": "authored"
+    "id": "m12-readonly-sa-exists",
+    "description": "IDENTITY: ServiceAccount northstar:agent-readonly exists on the cluster — the agent operates as a real identity, not the admin kubeconfig",
+    "command": "kubectl get sa agent-readonly -n northstar -o jsonpath='{.metadata.name}' 2>/dev/null || echo missing",
+    "expect": "agent-readonly"
   },
   {
-    "id": "m12-brief-is-not-a-claude-md",
-    "description": "YOUR BRIEF: the chart directory carries no CLAUDE.md — a build brief is an input to one task, not a file injected into every future turn in that directory",
-    "command": "[ -f platform/helm/orders-api/CLAUDE.md ] && echo present || echo absent",
-    "expect": "absent"
+    "id": "m12-readonly-can-read",
+    "description": "IDENTITY: the read-only kubeconfig CAN get pods — the identity is not so locked down it cannot do its job",
+    "command": "KC=platform/kubeconfigs/agent-readonly.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; kubectl --kubeconfig=\"$KC\" auth can-i get pods -n northstar 2>/dev/null || echo no",
+    "expect": "yes"
   },
   {
-    "id": "m12-tests-authored",
-    "description": "YOUR TESTS: the chart has its own test directory with a runner and at least two render tests, all executable",
-    "command": "T=platform/helm/orders-api/tests; [ -x $T/run.sh ] || { echo missing; exit 0; }; n=$(ls $T/*.test.sh 2>/dev/null | wc -l | tr -d ' '); x=$(find $T -name '*.test.sh' -perm -u+x 2>/dev/null | wc -l | tr -d ' '); { [ \"$n\" -ge 2 ] && [ \"$x\" = \"$n\" ]; } && echo authored || echo missing",
-    "expect": "authored"
+    "id": "m12-readonly-cannot-mutate",
+    "description": "IDENTITY: the read-only kubeconfig cannot delete a Deployment — the API server refuses it, not a hook",
+    "command": "KC=platform/kubeconfigs/agent-readonly.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; OUT=$(kubectl --kubeconfig=\"$KC\" auth can-i delete deployments -n northstar 2>/dev/null); echo \"${OUT:-no}\"",
+    "expect": "no"
   },
   {
-    "id": "m12-tests-assert-on-the-render",
-    "description": "YOUR TESTS: every test renders the chart with helm template rather than grepping values.yaml — a value the template never uses would pass a grep",
-    "command": "T=platform/helm/orders-api/tests; ls $T/*.test.sh >/dev/null 2>&1 || { echo missing; exit 0; }; for f in $T/*.test.sh; do grep -q 'helm template' \"$f\" || { echo grep-only; exit 0; }; done; echo render-based",
-    "expect": "render-based"
+    "id": "m12-kubeconfig-is-generated-not-committed",
+    "description": "IDENTITY: generated agent kubeconfigs are gitignored — the token that grants cluster access is never checked into Git",
+    "command": "git check-ignore -q platform/kubeconfigs/agent-readonly.yaml && echo ignored || echo tracked",
+    "expect": "ignored"
   },
   {
-    "id": "m12-tests-pass",
-    "description": "YOUR TESTS: the suite passes from a single command and exits 0 — a summary nothing can gate on is not a gate",
-    "command": "[ -x platform/helm/orders-api/tests/run.sh ] || { echo no-suite; exit 0; }; ./platform/helm/orders-api/tests/run.sh >/dev/null 2>&1 && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-remediator-can-patch-northstar",
+    "description": "IDENTITY: the remediator CAN patch Deployments in the northstar namespace — the identity exists to do the one job it is scoped for",
+    "command": "KC=platform/kubeconfigs/agent-remediator.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; kubectl --kubeconfig=\"$KC\" auth can-i patch deployments -n northstar 2>/dev/null || echo no",
+    "expect": "yes"
   },
   {
-    "id": "m12-tests-name-the-value-they-found",
-    "description": "YOUR TESTS: a failure message prints the value it found, so a failing pipeline run is debuggable without re-running anything",
-    "command": "T=platform/helm/orders-api/tests; ls $T/*.test.sh >/dev/null 2>&1 || { echo missing; exit 0; }; grep -hq 'FAIL:.*\\$' $T/*.test.sh && echo reports-values || echo bare-fail",
-    "expect": "reports-values"
+    "id": "m12-remediator-is-namespaced",
+    "description": "IDENTITY: the remediator CANNOT patch Deployments in kube-system — a namespaced Role, not a ClusterRole, so the write scope stops at the namespace boundary",
+    "command": "KC=platform/kubeconfigs/agent-remediator.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; OUT=$(kubectl --kubeconfig=\"$KC\" auth can-i patch deployments -n kube-system 2>/dev/null); echo \"${OUT:-no}\"",
+    "expect": "no"
   },
   {
-    "id": "m12-rollout-has-serving-floor",
-    "description": "YOUR CHART: the render leaves a serving floor — maxUnavailable is not 100% AND there is more than one replica, because the floor is the two values together",
-    "command": "R=$(helm template orders-api platform/helm/orders-api 2>/dev/null); [ -n \"$R\" ] || { echo no-render; exit 0; }; mu=$(echo \"$R\" | awk '/maxUnavailable:/{print $2; exit}' | tr -d '\"'); rp=$(echo \"$R\" | awk '/^  replicas:/{print $2; exit}'); { [ \"$mu\" != \"100%\" ] && [ -n \"$rp\" ] && [ \"$rp\" -ge 2 ]; } && echo floor || echo no-floor",
-    "expect": "floor"
+    "id": "m12-remediator-cannot-delete",
+    "description": "IDENTITY: the remediator cannot delete Deployments — its verbs are get/list/patch only, deletion is a different authority it was never granted",
+    "command": "KC=platform/kubeconfigs/agent-remediator.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; OUT=$(kubectl --kubeconfig=\"$KC\" auth can-i delete deployments -n northstar 2>/dev/null); echo \"${OUT:-no}\"",
+    "expect": "no"
   },
   {
-    "id": "m12-workload-is-bounded",
-    "description": "YOUR CHART: the rendered container declares both requests and limits for cpu and memory — a container with no requests is BestEffort and is evicted first",
-    "command": "helm template orders-api platform/helm/orders-api 2>/dev/null | yq -r 'select(.kind==\"Deployment\") | .spec.template.spec.containers[0].resources | [(.requests.cpu//\"-\"),(.requests.memory//\"-\"),(.limits.cpu//\"-\"),(.limits.memory//\"-\")] | join(\",\")' 2>/dev/null | grep -qv -- '-' && echo bounded || echo unbounded",
-    "expect": "bounded"
+    "id": "m12-remediator-cannot-read-secrets",
+    "description": "IDENTITY: the remediator cannot read Secrets — it is narrower than the read-only identity, not a superset of it, even though it can write",
+    "command": "KC=platform/kubeconfigs/agent-remediator.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; OUT=$(kubectl --kubeconfig=\"$KC\" auth can-i get secrets -n northstar 2>/dev/null); echo \"${OUT:-no}\"",
+    "expect": "no"
   },
   {
-    "id": "m12-pod-runs-non-root",
-    "description": "YOUR CHART: the rendered pod sets runAsNonRoot with a NUMERIC non-zero runAsUser — runAsNonRoot alone fails at container creation against an image whose USER is a name",
-    "command": "R=$(helm template orders-api platform/helm/orders-api 2>/dev/null | yq -r 'select(.kind==\"Deployment\") | .spec.template.spec.securityContext | \"\\(.runAsNonRoot) \\(.runAsUser)\"' 2>/dev/null); set -- $R; [ \"$1\" = \"true\" ] || { echo root-or-unset; exit 0; }; case \"$2\" in ''|*[!0-9]*) echo non-numeric-uid;; 0) echo root-or-unset;; *) echo non-root;; esac",
-    "expect": "non-root"
-  },
-  {
-    "id": "m12-baseline-is-not-a-caller-option",
-    "description": "YOUR CHART: the security context is hardcoded in the template, not exposed in values.yaml — a baseline a values file can switch off is not a baseline",
-    "command": "grep -q 'runAsNonRoot' platform/helm/orders-api/templates/deployment.yaml 2>/dev/null && ! grep -q '^securityContext:' platform/helm/orders-api/values.yaml 2>/dev/null && echo hardcoded || echo variabilized",
-    "expect": "hardcoded"
-  },
-  {
-    "id": "m12-chart-lints-clean",
-    "description": "YOUR CHART: helm lint reports 0 failed — necessary and nowhere near sufficient, which is the whole reason the tests above exist",
-    "command": "helm lint platform/helm/orders-api 2>/dev/null | grep -Eq '0 chart\\(s\\) failed' && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-shipped-to-main",
-    "description": "GOLDEN PATH: the chart change AND its tests are on main — the reconciler's source of truth carries the fix, not a branch nobody merged",
-    "command": "git rev-parse -q --verify main >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:platform/helm/orders-api/tests/run.sh >/dev/null 2>&1 || { echo fail; exit 0; }; git show main:platform/helm/orders-api/values.yaml 2>/dev/null | grep -Eq 'maxUnavailable: *\"?100%' && { echo fail; exit 0; }; echo pass",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-helm-style-skill-present",
-    "description": "HOUSE STANDARD: the helm-style skill exists — handing TDD to the harness only works when the standard is a file the agent can read",
-    "command": "[ -f .claude/skills/helm-style/SKILL.md ] && echo present || echo missing",
+    "id": "m12-role-declares-skill",
+    "description": "HARNESS: k8s-operator carries the Skill tool — without it k8s-triage is read as a plain file and no schema-bound triage ever fires",
+    "command": "awk '/^tools:/' .claude/agents/k8s-operator.md 2>/dev/null | grep -q 'Skill' && echo present || echo missing",
     "expect": "present"
   },
   {
-    "id": "m12-house-standard-carries-vocabulary",
-    "description": "HOUSE STANDARD: the skill names the near-miss values that render cleanly and behave wrongly (mebibytes, millicores, RuntimeDefault, selector immutability)",
-    "command": "S=.claude/skills/helm-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; for t in '256Mi' '100m' 'RuntimeDefault' 'immutable'; do grep -q \"$t\" $S || { echo thin; exit 0; }; done; echo complete",
+    "id": "m12-bounded-tool-refuses-all-namespaces",
+    "description": "TOOL: kubectl-bounded refuses -A — an unbounded cluster-wide read is not something a triage agent is allowed to ask for",
+    "command": "platform/bin/kubectl-bounded get pods -A >/dev/null 2>&1; [ $? -ne 0 ] && echo refused || echo allowed",
+    "expect": "refused"
+  },
+  {
+    "id": "m12-bounded-tool-truncates",
+    "description": "TOOL: output past MAX_LINES carries the TRUNCATED marker — an unbounded read is a context-budget grenade even when it is legally scoped",
+    "command": "[ -f platform/kubeconfigs/agent-readonly.yaml ] || { echo missing; exit 0; }; MAX_LINES=1 platform/bin/kubectl-bounded get pods -n northstar 2>/dev/null | grep -q -- '--- TRUNCATED:' && echo truncated || echo not-truncated",
+    "expect": "truncated"
+  },
+  {
+    "id": "m12-triage-skill-has-a-schema",
+    "description": "SKILL: k8s-triage/SKILL.md names all six schema fields — five free-form essays cannot be ranked against each other, five identical records can",
+    "command": "S=.claude/skills/k8s-triage/SKILL.md; [ -f \"$S\" ] || { echo missing; exit 0; }; for f in workload signature root_cause evidence blast_radius confidence; do grep -q \"$f\" \"$S\" || { echo incomplete; exit 0; }; done; echo complete",
     "expect": "complete"
   },
   {
-    "id": "m12-role-can-invoke-skills",
-    "description": "HARNESS: platform-engineer carries the Skill tool — without it the agent reads SKILL.md as a plain file and no brainstorm, plan or test-first cycle ever runs",
-    "command": "grep -E '^tools:' .claude/agents/platform-engineer.md 2>/dev/null | grep -q '\"Skill\"' && echo capable || echo silently-degraded",
-    "expect": "capable"
+    "id": "m12-triage-reads-ready-not-endpoints",
+    "description": "SKILL: the evidence commands read .conditions.ready on EndpointSlices, and no bounded read is a bare 'kubectl get endpoints' — the ADDRESSES column lies about which pods are actually serving",
+    "command": "S=.claude/skills/k8s-triage/SKILL.md; [ -f \"$S\" ] || { echo missing; exit 0; }; grep -q 'conditions.ready' \"$S\" || { echo wrong; exit 0; }; awk '/^```bash/{c=1;next} /^```/{c=0} c && /get endpoints /{bad=1} END{exit !bad}' \"$S\" && echo wrong || echo correct",
+    "expect": "correct"
   },
   {
-    "id": "m12-role-cannot-write-to-a-cluster",
-    "description": "AUTHORITY: the platform-engineer role is declared Git-only — it edits desired state and proposes; the reconciler is the identity that writes",
-    "command": "grep -qi 'NEVER.*kubectl apply' .claude/agents/platform-engineer.md 2>/dev/null && echo git-only || echo unbounded",
-    "expect": "git-only"
+    "id": "m12-hook-denies-mutation",
+    "description": "ENFORCEMENT: the deny hook returns a deny decision for a mutating kubectl verb — a faster, louder no in front of the RBAC 403",
+    "command": "echo '{\"tool_input\":{\"command\":\"kubectl delete pod foo -n northstar\"}}' | .claude/hooks/deny-cluster-mutation.sh 2>/dev/null | grep -q '\"decision\":\"deny\"' && echo deny || echo allow",
+    "expect": "deny"
   },
   {
-    "id": "m12-enforcement-readonly-verbs",
-    "description": "ENFORCEMENT: the read-only ClusterRole grants exactly get/list/watch and no write verb — the agent's identity cannot mutate, whatever it intends",
-    "command": "grep -Eq 'verbs: \\[\"get\", \"list\", \"watch\"\\]' platform/rbac/agent-readonly.yaml && ! grep -Eq '\"(create|update|delete|patch)\"' platform/rbac/agent-readonly.yaml && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-brief-is-not-a-claude-md",
+    "description": "YOUR BRIEF: the directory's standing context (platform/CLAUDE.md) carries no 'done means' requirements text — a CLAUDE.md is injected every turn forever, a one-time brief is not",
+    "command": "[ -f platform/CLAUDE.md ] || { echo missing; exit 0; }; grep -qi 'done means' platform/CLAUDE.md && echo leaked || echo separate",
+    "expect": "separate"
   },
   {
-    "id": "m12-enforcement-pod-security-baseline",
-    "description": "ENFORCEMENT: the northstar namespace enforces the baseline Pod Security Standard — and baseline permits root, which is why the chart carries the security context",
-    "command": "grep -Eq 'pod-security.kubernetes.io/enforce: baseline' platform/policies/pod-security.yaml && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-brief-authored",
+    "description": "YOUR BRIEF: platform/SPEC.md exists and states what done means — the triage requirements are written down before the agent starts",
+    "command": "S=platform/SPEC.md; [ -f \"$S\" ] || { echo missing; exit 0; }; grep -qi 'done means' \"$S\" && echo authored || echo incomplete",
+    "expect": "authored"
   },
   {
-    "id": "m12-gitops-gate-denies-namespace-delete",
-    "description": "GITOPS: the change gate denies deleting the northstar namespace from an agent identity (exit 2) — an unbounded blast radius is refused",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl delete namespace northstar\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-findings-cover-all-five",
+    "description": "YOUR FINDINGS: agentops/k8s-triage/findings.md names all five planted workloads — imagepull, crashloop, resource-limit, liveness-probe and configmap-mount",
+    "command": "F=agentops/k8s-triage/findings.md; [ -f \"$F\" ] || { echo missing; exit 0; }; ok=1; for w in imagepull-test crashloop-test resource-limit-test liveness-probe-test configmap-mount-test; do grep -q \"$w\" \"$F\" || ok=0; done; [ \"$ok\" = 1 ] && echo covers-all-five || echo incomplete",
+    "expect": "covers-all-five"
   },
   {
-    "id": "m12-gitops-gate-denies-wildcard-mutation",
-    "description": "GITOPS: the change gate denies a mutating kubectl across all namespaces (-A) from an agent identity (exit 2)",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl delete pods -A\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-findings-are-ranked",
+    "description": "YOUR FINDINGS: all five findings carry a blast_radius field and the file states a ranking by blast radius — five identical records are useless unless they are ordered",
+    "command": "F=agentops/k8s-triage/findings.md; [ -f \"$F\" ] || { echo missing; exit 0; }; n=$(grep -c 'blast_radius:' \"$F\" 2>/dev/null || echo 0); grep -qi 'rank' \"$F\" && [ \"$n\" -ge 5 ] && echo ranked || echo unranked",
+    "expect": "ranked"
   },
   {
-    "id": "m12-gitops-gate-denies-docker-push",
-    "description": "GITOPS: the change gate denies docker push from an agent identity (exit 2) — desired state ships through Git, images ship through CI. Two paths, deliberately",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:latest\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12-remediation-via-agent-identity",
+    "description": "YOUR REMEDIATION: agentops/k8s-triage/remediation.md records the fix as applied through the agent-remediator identity, not the admin kubeconfig",
+    "command": "F=agentops/k8s-triage/remediation.md; [ -f \"$F\" ] || { echo missing; exit 0; }; grep -q 'agent-remediator' \"$F\" && ! grep -qi 'kubeconfigs/admin.yaml' \"$F\" && echo remediator-identity || echo wrong-identity",
+    "expect": "remediator-identity"
   },
   {
-    "id": "m12-gitops-gate-allows-reads",
-    "description": "GITOPS: a read-only kubectl is allowed (exit 0) — a gate that blocks investigation gets switched off within a week",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl get pods -n northstar\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-gitops-propose-refuses-cluster-write",
-    "description": "GITOPS: the proposal script contains no cluster-write command — it writes to Git and stops, which is the agent's structural stopping point",
-    "command": "[ -x scripts/gitops-propose.sh ] || { echo fail; exit 0; }; ! grep -Eq '(kubectl[[:space:]]+(apply|delete|create|patch|scale)|helm[[:space:]]+(upgrade|install))' scripts/gitops-propose.sh && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-reconciler-crds-vendored",
-    "description": "RECONCILER: the Application/AppProject CRDs ship in the repo — an Application applied without them fails with 'no matches for kind', and a network fetch is one more thing to be offline",
-    "command": "F=platform/argocd/crds.yaml; [ -f $F ] || { echo missing; exit 0; }; grep -q 'applications.argoproj.io' $F && grep -q 'appprojects.argoproj.io' $F && echo vendored || echo incomplete",
-    "expect": "vendored"
-  },
-  {
-    "id": "m12-reconciler-repo-server-reachable",
-    "description": "RECONCILER: argocd-repo-server has a Service — the controller resolves it by DNS name, and without one the Application never renders a manifest",
-    "command": "awk '/^kind: Service/{s=1} s&&/name: argocd-repo-server/{print \"found\"; exit}' platform/argocd/install.yaml | grep -q found && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12-reconciler-reads-a-mounted-remote",
-    "description": "RECONCILER: the Applications point at the remote mounted into the cluster, not at a host path a pod cannot see",
-    "command": "grep -h 'repoURL:' platform/argocd/applications/*.yaml | grep -q 'file:///gitops/' && ! grep -qh 'file:///tmp/' platform/argocd/applications/*.yaml && echo mounted || echo unreachable",
-    "expect": "mounted"
-  },
-  {
-    "id": "m12-kind-mounts-the-remote",
-    "description": "RECONCILER: the kind config mounts the bare remote through to /gitops on the node — the mount is what makes file:///gitops resolvable inside the repo-server",
-    "command": "grep -q 'containerPath: /gitops/northstar-remote.git' platform/kind/kind-config.yaml && grep -q 'containerPath: /gitops/northstar-remote.git' platform/kind/kind-config-lean.yaml && echo mounted || echo missing",
-    "expect": "mounted"
+    "id": "m12-secret-read-was-measured",
+    "description": "YOUR MEASUREMENT: agentops/k8s-triage/secret-read-measurement.md records whether 'get secret -o yaml' succeeded under the read-only identity — the honest-limits beat has to be measured, not assumed",
+    "command": "F=agentops/k8s-triage/secret-read-measurement.md; [ -f \"$F\" ] || { echo missing; exit 0; }; grep -qiE 'succeeded|failed|forbidden|allowed|denied' \"$F\" && echo measured || echo unmeasured",
+    "expect": "measured"
   }
 ]

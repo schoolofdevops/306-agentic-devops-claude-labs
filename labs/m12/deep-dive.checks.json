@@ -1,56 +1,44 @@
 [
   {
-    "id": "m12dd-candidate-exists",
-    "description": "THE CANDIDATE: the release candidate under diagnosis is a values overlay in Git (fixtures/release/candidate-values.yaml), not whatever happens to be on main — so the diagnosis is reproducible whichever repairs you have already merged",
-    "command": "[ -f fixtures/release/candidate-values.yaml ] && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-naive-role-grants-wildcard-resources",
+    "description": "THE HOLE: the committed read-only ClusterRole grants get/list/watch on resources: [\"*\"] — that wildcard is what makes Secrets readable, and it was left in deliberately for this beat",
+    "command": "R=platform/rbac/agent-readonly.yaml; [ -f \"$R\" ] || { echo missing; exit 0; }; grep -q 'resources: \\[\"\\*\"\\]' \"$R\" && echo wildcard || echo scoped",
+    "expect": "wildcard"
   },
   {
-    "id": "m12dd-app-serves-healthz-not-health",
-    "description": "APP HEALTH: the orders-api process serves /healthz (and /readyz) but has NO /health route — so a probe pointed at /health gets a 404, not because the app is down",
-    "command": "grep -Eq '@router.get\\(\"/healthz\"\\)' app/orders-api/src/health.py && ! grep -Eq '@router.get\\(\"/health\"\\)' app/orders-api/src/health.py && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-naive-role-can-read-secrets",
+    "description": "THE HOLE, MEASURED: under the committed read-only kubeconfig, 'get secrets' succeeds — the agent's own identity can read every Secret in the namespace, not just workload state",
+    "command": "KC=platform/kubeconfigs/agent-readonly.yaml; [ -f \"$KC\" ] || { echo missing; exit 0; }; kubectl --kubeconfig=\"$KC\" auth can-i get secrets -n northstar 2>/dev/null || echo no",
+    "expect": "yes"
   },
   {
-    "id": "m12dd-readiness-probe-points-at-wrong-path",
-    "description": "PROBE CONFIG: the candidate's RENDERED readiness probe points at /health — the path the app does not serve — so the pod will never report Ready",
-    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo fail; exit 0; }; helm template orders-api platform/helm/orders-api -f fixtures/release/candidate-values.yaml 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /health$' && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-tightened-role-authored",
+    "description": "YOUR FIX: platform/rbac/agent-readonly-tightened.yaml exists — the learner closes the hole by authoring a scoped ClusterRole, not by editing the live cluster by hand",
+    "command": "[ -f platform/rbac/agent-readonly-tightened.yaml ] && echo authored || echo missing",
+    "expect": "authored"
   },
   {
-    "id": "m12dd-liveness-probe-is-correct",
-    "description": "PROBE CONFIG: the candidate leaves the liveness probe on /healthz — this is the misleading part, the container is NOT killed, it just stays perpetually unready",
-    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo fail; exit 0; }; helm template orders-api platform/helm/orders-api -f fixtures/release/candidate-values.yaml 2>/dev/null | grep -A2 livenessProbe | grep -Eq 'path: /healthz$' && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-tightened-role-drops-wildcard",
+    "description": "YOUR FIX: the tightened role names an explicit resource list, not resources: [\"*\"] — a wildcard resource grant cannot be narrowed by omission, it has to be replaced",
+    "command": "R=platform/rbac/agent-readonly-tightened.yaml; [ -f \"$R\" ] || { echo missing; exit 0; }; grep -q 'resources: \\[\"\\*\"\\]' \"$R\" && echo still-wildcard || echo explicit-list",
+    "expect": "explicit-list"
   },
   {
-    "id": "m12dd-rollout-strategy-guarantees-outage",
-    "description": "ROLLOUT STATE: the candidate renders maxUnavailable as 100% — a rolling update may take every old pod down before a new one is Ready, turning an unready rollout into a full outage",
-    "command": "[ -f fixtures/release/candidate-values.yaml ] || { echo fail; exit 0; }; helm template orders-api platform/helm/orders-api -f fixtures/release/candidate-values.yaml 2>/dev/null | grep -Eq 'maxUnavailable: 100%' && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-tightened-role-excludes-secrets",
+    "description": "YOUR FIX: the tightened role's resource list never names secrets — the one resource the triage skill never needs to read",
+    "command": "R=platform/rbac/agent-readonly-tightened.yaml; [ -f \"$R\" ] || { echo missing; exit 0; }; grep -q 'secrets' \"$R\" && echo still-includes-secrets || echo excludes-secrets",
+    "expect": "excludes-secrets"
   },
   {
-    "id": "m12dd-root-cause-is-git-fixable",
-    "description": "THE FIX: the defect lives in the candidate's Helm values (desired state in Git), not in the app or the cluster — so the repair is a values change rejected before merge, not a kubectl edit after it",
-    "command": "grep -Eq 'path: /health *$' fixtures/release/candidate-values.yaml && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-tightened-role-keeps-core-reads",
+    "description": "YOUR FIX: the tightened role still names pods, deployments and configmaps — closing the Secrets hole must not silently break the triage skill's own evidence reads",
+    "command": "R=platform/rbac/agent-readonly-tightened.yaml; [ -f \"$R\" ] || { echo missing; exit 0; }; for r in pods deployments configmaps; do grep -q \"$r\" \"$R\" || { echo broke-core-reads; exit 0; }; done; echo core-reads-intact",
+    "expect": "core-reads-intact"
   },
   {
-    "id": "m12dd-main-is-already-repaired",
-    "description": "THE REGRESSION: main's committed readiness probe is a route the app actually serves — which is what makes the candidate a REGRESSION rather than a pre-existing bug, and why the diff is the thing to review",
-    "command": "p=$(helm template orders-api platform/helm/orders-api 2>/dev/null | awk '/readinessProbe:/{f=1} f&&/path:/{print $2; exit}'); [ -n \"$p\" ] || { echo fail; exit 0; }; grep -Eq \"@router.get\\\\(\\\"$p\\\"\\\\)\" app/orders-api/src/health.py && echo pass || echo fail",
-    "expect": "pass"
-  },
-  {
-    "id": "m12dd-fix-renders-ready-probe",
-    "description": "THE FIX VERIFIED: dropping the candidate's probe override renders a readiness probe that matches a route the app really serves (proven with helm template, no cluster touched)",
-    "command": "f=$(mktemp); printf 'readinessProbe:\\n  httpGet:\\n    path: /healthz\\n    port: http\\n  initialDelaySeconds: 5\\n  periodSeconds: 10\\n' > \"$f\"; helm template orders-api platform/helm/orders-api -f fixtures/release/candidate-values.yaml -f \"$f\" 2>/dev/null | grep -A2 readinessProbe | grep -Eq 'path: /healthz$' && echo pass || echo fail; rm -f \"$f\"",
-    "expect": "pass"
-  },
-  {
-    "id": "m12dd-repair-goes-through-gitops-not-kubectl",
-    "description": "GOVERNANCE: the repair path is the golden path — a direct kubectl edit of the live deployment from an agent identity is exactly the wrong-target class the gate blocks; the fix is proposed in Git",
-    "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl edit deployment orders-api -A\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
-    "expect": "pass"
+    "id": "m12dd-tightened-role-only-grants-read-verbs",
+    "description": "YOUR FIX: the tightened role still grants only get/list/watch — narrowing the resource list is not an excuse to also add a write verb",
+    "command": "R=platform/rbac/agent-readonly-tightened.yaml; [ -f \"$R\" ] || { echo missing; exit 0; }; grep -Eq '\"(create|update|patch|delete)\"' \"$R\" && echo write-verb-present || echo read-only",
+    "expect": "read-only"
   }
 ]
