@@ -86,6 +86,18 @@ roles:
       - "Cannot approve a release it gated; the proposer is never the approver"
       - "Cannot edit a candidate to make its own gate pass"
 
+  secops-engineer:
+    description: "Builds the agent authority attestation under security/ — probes, scorer, schema; measures authority, never changes it"
+    permissions:
+      read: ["security/", "contracts/", ".claude/agents/", "platform/policies/", "platform/kubeconfigs/", "scripts/"]
+      execute: ["scripts/action-boundary-check.sh", "scripts/role-authority-check.sh", "scripts/secops-surface-scan.sh", "scripts/side-effect-oracle.sh"]
+      write: ["security/"]
+      approve: []
+    constraints:
+      - "Cannot edit .claude/agents/, contracts/ or any hook — those are the subject under measurement"
+      - "Cannot issue the attestation verdict; the instrument emits verdict null and a reviewer signs"
+      - "Every probe is a question about authority, never an action against a running system"
+
   change-reviewer:
     description: "Reviews and approves changes before production deployment"
     permissions:
@@ -122,4 +134,5 @@ role_bundles:
   finops-analyst: { model: haiku, effort: low, writer: false, turn_budget: 6, worktree: false }
   release-engineer: { model: sonnet, effort: medium, writer: true, turn_budget: 14, worktree: true }
   mlops-engineer: { model: sonnet, effort: medium, writer: false, turn_budget: 8, worktree: false }
+  secops-engineer: { model: sonnet, effort: medium, writer: true, turn_budget: 16, worktree: true }
   change-reviewer: { model: opus, effort: high, writer: false, turn_budget: 10, worktree: true }

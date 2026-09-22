@@ -432,7 +432,7 @@ case "$MODULE" in
     ;;
 
   m15)
-    echo "Checking: SecOps, Data Boundaries & Action-Boundary Engineering — surface audit, injection defense, the five-dimension action boundary, and the side-effect oracle"
+    echo "Checking: SecOps & Action Boundaries — the agent authority attestation: declared vs effective vs runtime authority, the five-dimension boundary probes, and the fail-closed unproven rule"
     echo ""
 
     CHECKS="$REPO_ROOT/labs/m15/checks.json"

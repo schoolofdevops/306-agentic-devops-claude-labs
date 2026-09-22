@@ -1,37 +1,37 @@
 [
   {
     "id": "m13-brief-authored",
-    "description": "YOUR BRIEF: release/SPEC.md exists and states what done means — requirements written before the gate was designed",
+    "description": "YOUR BRIEF: release/SPEC.md exists and states what done means \u2014 requirements written before the gate was designed",
     "command": "S=release/SPEC.md; [ -f $S ] || { echo missing; exit 0; }; grep -qi 'done means' $S && echo authored || echo incomplete",
     "expect": "authored"
   },
   {
     "id": "m13-brief-is-not-a-claude-md",
-    "description": "YOUR BRIEF: no CLAUDE.md under release/ — a build brief is an input to one task, not context injected into every future turn",
+    "description": "YOUR BRIEF: no CLAUDE.md under release/ \u2014 a build brief is an input to one task, not context injected into every future turn",
     "command": "[ -f release/CLAUDE.md ] && echo present || echo absent",
     "expect": "absent"
   },
   {
     "id": "m13-gate-executable",
-    "description": "YOUR GATE: release/ci-release-gate.sh exists and is executable — the release gate runs without you, which is the difference between a gate and a habit",
+    "description": "YOUR GATE: release/ci-release-gate.sh exists and is executable \u2014 the release gate runs without you, which is the difference between a gate and a habit",
     "command": "[ -x release/ci-release-gate.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-gate-blocks-with-exit-2",
-    "description": "EXIT PROTOCOL: the gate exits 2 on the known-bad candidate — block is its own code, not a generic failure",
+    "description": "EXIT PROTOCOL: the gate exits 2 on the known-bad candidate \u2014 block is its own code, not a generic failure",
     "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; ./release/ci-release-gate.sh --values fixtures/release/candidate-values.yaml >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-gate-approves-with-exit-0",
-    "description": "EXIT PROTOCOL: the gate exits 0 on a candidate that clears the analysers — it blocks on evidence, not on everything",
+    "description": "EXIT PROTOCOL: the gate exits 0 on a candidate that clears the analysers \u2014 it blocks on evidence, not on everything",
     "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; C=$(ls release/tests/fixtures/*.yaml 2>/dev/null | head -1); [ -n \"$C\" ] || { echo no-good-fixture; exit 0; }; ./release/ci-release-gate.sh --values \"$C\" >/dev/null 2>&1; [ $? -eq 0 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-gate-fails-closed-on-missing-candidate",
-    "description": "FAIL-CLOSED: a candidate file it cannot read exits 1, NOT 0 and not 2 — the dangerous failure of a gate is approving a release it never examined",
+    "description": "FAIL-CLOSED: a candidate file it cannot read exits 1, NOT 0 and not 2 \u2014 the dangerous failure of a gate is approving a release it never examined",
     "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; ./release/ci-release-gate.sh --values fixtures/release/does-not-exist.yaml >/dev/null 2>&1; [ $? -eq 1 ] && echo pass || echo fail",
     "expect": "pass"
   },
@@ -43,25 +43,25 @@
   },
   {
     "id": "m13-gate-silent-on-stdout-when-it-cannot-evaluate",
-    "description": "FAIL-CLOSED: nothing is printed on stdout when the gate cannot evaluate — a verdict object on a fail-closed path is something downstream will misread",
+    "description": "FAIL-CLOSED: nothing is printed on stdout when the gate cannot evaluate \u2014 a verdict object on a fail-closed path is something downstream will misread",
     "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; out=$(./release/ci-release-gate.sh --values fixtures/release/does-not-exist.yaml 2>/dev/null); [ -z \"$out\" ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-verdict-names-the-candidate",
-    "description": "AUDITABILITY: the verdict names the candidate it judged — six weeks later this is what says it read the release and not the default",
+    "description": "AUDITABILITY: the verdict names the candidate it judged \u2014 six weeks later this is what says it read the release and not the default",
     "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; out=$(./release/ci-release-gate.sh --values fixtures/release/candidate-values.yaml 2>/dev/null); echo \"$out\" | jq -e '.candidate | test(\"candidate-values\")' >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-blockers-carry-a-source",
-    "description": "AUDITABILITY: every blocker names where the finding came from — 'failed policy check' is a mood, not a finding",
+    "description": "AUDITABILITY: every blocker names where the finding came from \u2014 'failed policy check' is a mood, not a finding",
     "command": "[ -x release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; out=$(./release/ci-release-gate.sh --values fixtures/release/candidate-values.yaml 2>/dev/null); n=$(echo \"$out\" | jq '[.blockers[] | select(.source != null and .source != \"\")] | length' 2>/dev/null); t=$(echo \"$out\" | jq '.blockers | length' 2>/dev/null); { [ -n \"$n\" ] && [ \"$n\" = \"$t\" ] && [ \"$t\" -gt 0 ]; } && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-gate-never-ships",
-    "description": "AUTHORITY: the gate contains no command that tags, pushes, deploys or applies — a gate that can ship is not a gate",
+    "description": "AUTHORITY: the gate contains no command that tags, pushes, deploys or applies \u2014 a gate that can ship is not a gate",
     "command": "[ -f release/ci-release-gate.sh ] || { echo no-gate; exit 0; }; sed 's/#.*$//' release/ci-release-gate.sh | grep -Eq '(git[[:space:]]+tag|git[[:space:]]+push|docker[[:space:]]+push|helm[[:space:]]+(upgrade|install)|kubectl[[:space:]]+apply)' && echo ships || echo reports-only",
     "expect": "reports-only"
   },
@@ -79,7 +79,7 @@
   },
   {
     "id": "m13-tests-cover-all-three-outcomes",
-    "description": "YOUR TESTS: the suite asserts on all three exit codes — approve, block AND cannot-evaluate. The third is the one nobody exercises by accident",
+    "description": "YOUR TESTS: the suite asserts on all three exit codes \u2014 approve, block AND cannot-evaluate. The third is the one nobody exercises by accident",
     "command": "T=release/tests; ls $T/*.test.sh >/dev/null 2>&1 || { echo missing; exit 0; }; for c in 0 1 2; do grep -hqE \"eq[[:space:]]+$c|== *$c\" $T/*.test.sh || { echo \"missing-$c\"; exit 0; }; done; echo complete",
     "expect": "complete"
   },
@@ -91,7 +91,7 @@
   },
   {
     "id": "m13-tests-catch-a-downgraded-fail-closed",
-    "description": "YOUR TESTS ACTUALLY WORK: turning the fail-closed path into a warning makes the suite fail — an assertion never seen failing proves nothing",
+    "description": "YOUR TESTS ACTUALLY WORK: turning the fail-closed path into a warning makes the suite fail \u2014 an assertion never seen failing proves nothing",
     "command": "G=release/ci-release-gate.sh; [ -x $G ] && [ -x release/tests/run.sh ] || { echo no-artifact; exit 0; }; cp $G /tmp/m13-gate-orig.sh; sed -i.bak 's/exit 1; }/exit 0; }/' $G 2>/dev/null; ./release/tests/run.sh >/dev/null 2>&1; rc=$?; cp /tmp/m13-gate-orig.sh $G; rm -f $G.bak; [ $rc -ne 0 ] && echo caught || echo blind",
     "expect": "caught"
   },
@@ -103,55 +103,55 @@
   },
   {
     "id": "m13-ci-gate-separates-block-from-cannot-evaluate",
-    "description": "CI: the workflow branches on the gate's exit code so a block and a fail-closed do not report the same thing — they send you to different places",
+    "description": "CI: the workflow branches on the gate's exit code so a block and a fail-closed do not report the same thing \u2014 they send you to different places",
     "command": "W=.github/workflows/release-gate.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q \"rc == '2'\" $W && grep -q \"rc == '1'\" $W && echo separated || echo collapsed",
     "expect": "separated"
   },
   {
     "id": "m13-ci-gate-carries-no-secret",
-    "description": "CI: the deterministic workflow references no secret and takes read-only repository permission — a gate that needs a credential is doing someone else's job",
+    "description": "CI: the deterministic workflow references no secret and takes read-only repository permission \u2014 a gate that needs a credential is doing someone else's job",
     "command": "W=.github/workflows/release-gate.yml; [ -f $W ] || { echo missing; exit 0; }; ! grep -q 'secrets\\.' $W && grep -q 'contents: read' $W && echo clean || echo overprivileged",
     "expect": "clean"
   },
   {
     "id": "m13-claude-action-pinned-and-subscription-authed",
     "description": "CI: the Claude workflow pins anthropics/claude-code-action@v1 and authenticates with an OAuth token, so a Pro/Max subscription works without an API key",
-    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'anthropics/claude-code-action@v1' $W && grep -q 'claude_code_oauth_token' $W && echo pass || echo fail",
+    "command": "W=.github/workflows/claude-pr-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'anthropics/claude-code-action@v1' $W && grep -q 'claude_code_oauth_token' $W && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-claude-action-cannot-edit",
-    "description": "AUTHORITY: the model in CI gets an allow-list with no Edit or Write — it explains a verdict and cannot change the candidate, the gate or the tests",
-    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; a=$(grep -o '\\-\\-allowedTools[^\\n]*' $W | head -1); [ -n \"$a\" ] || { echo unbounded; exit 0; }; echo \"$a\" | grep -Eq '(Edit|Write|MultiEdit)' && echo can-edit || echo read-only",
+    "description": "AUTHORITY: the model in CI gets an allow-list with no Edit or Write \u2014 it explains a verdict and cannot change the candidate, the gate or the tests",
+    "command": "W=.github/workflows/claude-pr-review.yml; [ -f $W ] || { echo missing; exit 0; }; a=$(grep -o '\\-\\-allowedTools[^\\n]*' $W | head -1); [ -n \"$a\" ] || { echo unbounded; exit 0; }; echo \"$a\" | grep -Eq '(Edit|Write|MultiEdit)' && echo can-edit || echo read-only",
     "expect": "read-only"
   },
   {
     "id": "m13-claude-action-is-bounded",
-    "description": "COST: the CI model run is capped with --max-turns — an agent in a pipeline with no turn cap is an unbounded bill and an unbounded runtime",
-    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q -- '--max-turns' $W && echo bounded || echo unbounded",
+    "description": "COST: the CI model run is capped with --max-turns \u2014 an agent in a pipeline with no turn cap is an unbounded bill and an unbounded runtime",
+    "command": "W=.github/workflows/claude-pr-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q -- '--max-turns' $W && echo bounded || echo unbounded",
     "expect": "bounded"
   },
   {
     "id": "m13-claude-action-cannot-gate-the-merge",
-    "description": "AUTHORITY: the explaining workflow can never fail or pass the merge — the deterministic gate holds that authority alone",
-    "command": "W=.github/workflows/claude-release-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'continue-on-error: true' $W && grep -q 'exit 0' $W && echo cannot-gate || echo can-gate",
+    "description": "AUTHORITY: the review workflow cannot fail or pass the merge \u2014 it holds pull-requests: write to comment and nothing else; the gate and the typed verdict hold merge authority",
+    "command": "W=.github/workflows/claude-pr-review.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'contents: read' $W && ! grep -q 'contents: write' $W && echo cannot-gate || echo can-gate",
     "expect": "cannot-gate"
   },
   {
     "id": "m13-gate-style-skill-present",
-    "description": "HOUSE STANDARD: the gate-style skill exists and carries the three-code protocol — handing TDD to the harness needs a standard it can read",
+    "description": "HOUSE STANDARD: the gate-style skill exists and carries the three-code protocol \u2014 handing TDD to the harness needs a standard it can read",
     "command": "S=.claude/skills/gate-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -q 'cannot evaluate' $S && grep -q 'fail-closed' $S && echo present || echo thin",
     "expect": "present"
   },
   {
     "id": "m13-gate-style-names-the-shell-traps",
-    "description": "HOUSE STANDARD: the skill names the shell constructs that silently turn a block into an approval — pipefail, $? after a pipe, grep under set -e",
+    "description": "HOUSE STANDARD: the skill names the shell constructs that silently turn a block into an approval \u2014 pipefail, $? after a pipe, grep under set -e",
     "command": "S=.claude/skills/gate-style/SKILL.md; [ -f $S ] || { echo missing; exit 0; }; grep -q 'pipefail' $S && grep -q 'set -e' $S && echo complete || echo thin",
     "expect": "complete"
   },
   {
     "id": "m13-release-engineer-can-invoke-skills",
-    "description": "HARNESS: the release-engineer role carries the Skill tool — without it the agent reads SKILL.md as a plain file and no method runs",
+    "description": "HARNESS: the release-engineer role carries the Skill tool \u2014 without it the agent reads SKILL.md as a plain file and no method runs",
     "command": "grep -E '^tools:' .claude/agents/release-engineer.md 2>/dev/null | grep -q '\"Skill\"' && echo capable || echo silently-degraded",
     "expect": "capable"
   },
@@ -163,13 +163,13 @@
   },
   {
     "id": "m13-release-engineer-in-authority-matrix",
-    "description": "AUTHORITY: the role exists in contracts/authority-matrix.yaml with write authority over release/ — a role file alone is not a declared authority",
+    "description": "AUTHORITY: the role exists in contracts/authority-matrix.yaml with write authority over release/ \u2014 a role file alone is not a declared authority",
     "command": "scripts/role-authority-check.sh release-engineer write >/dev/null 2>&1; [ $? -eq 0 ] && echo capable || echo blocked",
     "expect": "capable"
   },
   {
     "id": "m13-sod-reviewer-cannot-edit",
-    "description": "SEPARATION OF DUTIES: the change-reviewer has no write tool — the reviewer that edits the candidate has stopped being a reviewer",
+    "description": "SEPARATION OF DUTIES: the change-reviewer has no write tool \u2014 the reviewer that edits the candidate has stopped being a reviewer",
     "command": "scripts/role-authority-check.sh change-reviewer write >/dev/null 2>&1; [ $? -eq 3 ] && echo blocked || echo capable",
     "expect": "blocked"
   },
@@ -181,26 +181,74 @@
   },
   {
     "id": "m13-pipeline-analyze-blocks-candidate",
-    "description": "ANALYSER: pipeline-analyze.sh blocks the release candidate on its own — the gate composes this rule rather than re-implementing it",
+    "description": "ANALYSER: pipeline-analyze.sh blocks the release candidate on its own \u2014 the gate composes this rule rather than re-implementing it",
     "command": "scripts/pipeline-analyze.sh --values fixtures/release/candidate-values.yaml --field verdict 2>/dev/null",
     "expect": "block"
   },
   {
     "id": "m13-canary-verify-executable",
-    "description": "ANALYSER: canary-verify.sh is executable — the second evidence source the gate composes when a canary snapshot is supplied",
+    "description": "ANALYSER: canary-verify.sh is executable \u2014 the second evidence source the gate composes when a canary snapshot is supplied",
     "command": "[ -x scripts/canary-verify.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-gate-blocks-prod-apply",
-    "description": "CHANGE GATE: a production terraform apply is still denied from an agent identity (exit 2) — release tooling does not widen that",
+    "description": "CHANGE GATE: a production terraform apply is still denied from an agent identity (exit 2) \u2014 release tooling does not widen that",
     "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod apply\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m13-gate-blocks-docker-push",
-    "description": "CHANGE GATE: docker push is denied from an agent identity (exit 2) — images ship from CI, and the gate never ships at all",
+    "description": "CHANGE GATE: docker push is denied from an agent identity (exit 2) \u2014 images ship from CI, and the gate never ships at all",
     "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"docker push orders-api:latest\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m13-verdict-schema-present",
+    "description": "TYPED VERDICT: release/verdict.schema.json exists and constrains verdict to ship/hold/block \u2014 a pipeline branches on a field, not on prose",
+    "command": "S=release/verdict.schema.json; [ -f $S ] || { echo missing; exit 0; }; jq -e '.properties.verdict.enum == [\"ship\",\"hold\",\"block\"]' $S >/dev/null 2>&1 && echo typed || echo untyped",
+    "expect": "typed"
+  },
+  {
+    "id": "m13-verdict-schema-requires-rollback",
+    "description": "TYPED VERDICT: rollback is a required field \u2014 a release decision that cannot say how to undo itself is rejected by the schema, not by a reviewer's attention",
+    "command": "S=release/verdict.schema.json; [ -f $S ] || { echo missing; exit 0; }; jq -e '.required | index(\"rollback\") != null' $S >/dev/null 2>&1 && echo required || echo optional",
+    "expect": "required"
+  },
+  {
+    "id": "m13-decider-role-cannot-write",
+    "description": "AUTHORITY: the release-decider role has no file-write tool and is denied Edit/Write \u2014 it decides from the gate's output and cannot change what it judges",
+    "command": "R=.claude/agents/release-decider.md; [ -f $R ] || { echo missing; exit 0; }; grep -qE '^disallowedTools:.*\"Write\"' $R && ! grep -qE '^tools:.*\"Write\"' $R && echo bounded || echo unbounded",
+    "expect": "bounded"
+  },
+  {
+    "id": "m13-decider-role-can-invoke-skills",
+    "description": "HARNESS: the release-decider role carries Skill \u2014 without it the role reads a procedure as a plain file and improvises",
+    "command": "grep -E '^tools:' .claude/agents/release-decider.md 2>/dev/null | grep -q '\"Skill\"' && echo capable || echo silently-degraded",
+    "expect": "capable"
+  },
+  {
+    "id": "m13-verdict-workflow-is-typed",
+    "description": "CI: the verdict workflow emits schema-validated structured_output and pins the run without --bare \u2014 bare mode cannot read a subscription token, so using it would force an API key",
+    "command": "W=.github/workflows/release-verdict.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q -- '--json-schema' $W && grep -q 'structured_output' $W && grep -q -- '--strict-mcp-config' $W && echo typed || echo untyped",
+    "expect": "typed"
+  },
+  {
+    "id": "m13-load-check-workflow-present",
+    "description": "CI: a job fails the build when system/init reports plugin_errors or mcp_server_errors \u2014 a skill or role that silently did not load becomes a red build",
+    "command": "W=.github/workflows/agent-load-check.yml; [ -f $W ] || { echo missing; exit 0; }; grep -q 'plugin_errors' $W && grep -q 'mcp_server_errors' $W && echo present || echo incomplete",
+    "expect": "present"
+  },
+  {
+    "id": "m13-no-workflow-can-deploy",
+    "description": "AUTHORITY: no workflow hands Claude a deploy command \u2014 deploy authority belongs to a pipeline step, never to the model",
+    "command": "ls .github/workflows/*.yml >/dev/null 2>&1 || { echo missing; exit 0; }; grep -lE 'kubectl (apply|delete)|helm (upgrade|install)|docker push|git tag' .github/workflows/*.yml >/dev/null 2>&1 && echo can-deploy || echo cannot-deploy",
+    "expect": "cannot-deploy"
+  },
+  {
+    "id": "m13-project-runs-on-a-subscription",
+    "description": "NO API KEY: no workflow requires ANTHROPIC_API_KEY \u2014 every Claude invocation in this project authenticates with a subscription OAuth token from `claude setup-token`",
+    "command": "ls .github/workflows/*.yml >/dev/null 2>&1 || { echo missing; exit 0; }; grep -lq 'ANTHROPIC_API_KEY' .github/workflows/*.yml 2>/dev/null && echo needs-api-key || echo subscription-only",
+    "expect": "subscription-only"
   }
 ]
