@@ -197,6 +197,42 @@ case "$MODULE" in
     fi
     ;;
 
+  m1-deep-dive)
+    echo "Checking: Deep Dive — auditing what the gate actually measures"
+    echo ""
+
+    CHECKS="$REPO_ROOT/labs/m1/deep-dive.checks.json"
+    if [[ ! -f "$CHECKS" ]]; then
+      check "labs/m1/deep-dive.checks.json present" "false"
+    else
+      while IFS= read -r row; do
+        desc="$(echo "$row" | jq -r '.description')"
+        cmd="$(echo "$row" | jq -r '.command')"
+        exp="$(echo "$row" | jq -r '.expect')"
+        got="$(cd "$REPO_ROOT" && bash -c "$cmd" 2>/dev/null || true)"
+        check "$desc" "$([[ "$got" == "$exp" ]] && echo true || echo false)"
+      done < <(jq -c '.[]' "$CHECKS")
+    fi
+    ;;
+
+  m4-deep-dive)
+    echo "Checking: Deep Dive — dual FinOps: two budgets at once"
+    echo ""
+
+    CHECKS="$REPO_ROOT/labs/m4/deep-dive.checks.json"
+    if [[ ! -f "$CHECKS" ]]; then
+      check "labs/m4/deep-dive.checks.json present" "false"
+    else
+      while IFS= read -r row; do
+        desc="$(echo "$row" | jq -r '.description')"
+        cmd="$(echo "$row" | jq -r '.command')"
+        exp="$(echo "$row" | jq -r '.expect')"
+        got="$(cd "$REPO_ROOT" && bash -c "$cmd" 2>/dev/null || true)"
+        check "$desc" "$([[ "$got" == "$exp" ]] && echo true || echo false)"
+      done < <(jq -c '.[]' "$CHECKS")
+    fi
+    ;;
+
   m8-deep-dive)
     echo "Checking: Deep Dive — the Destructive Shortcut incident is contained by enforcement"
     echo ""

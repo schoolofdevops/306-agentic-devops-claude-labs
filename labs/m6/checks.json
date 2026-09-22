@@ -88,5 +88,17 @@
     "description": "YOUR REBUILD: the notes compare in both directions — what the reference had that yours missed AND something yours does better — because a reference written by someone else is not automatically right about your platform",
     "command": "F=agentops/rebuild-notes-service-health.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'miss|lack|absent|did not|missing' \"$F\" && grep -qiE 'better|improve|stronger|clearer' \"$F\" && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m6-command-front-door-exists",
+    "description": "YOUR COMMAND: .claude/commands/triage.md exists — the procedure now has a front door a teammate can type, not only a description the model might match",
+    "command": "[ -f .claude/commands/triage.md ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-command-points-at-skill",
+    "description": "YOUR COMMAND: the command invokes oncall-triage rather than restating it — a command that copies its skill is two things to maintain and one of them goes stale",
+    "command": "F=.claude/commands/triage.md; S=.claude/skills/oncall-triage/SKILL.md; [ -f \"$F\" ] && [ -f \"$S\" ] || { echo fail; exit 0; }; grep -q 'oncall-triage' \"$F\" && [ \"$(wc -l < \"$F\")\" -lt \"$(wc -l < \"$S\")\" ] && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

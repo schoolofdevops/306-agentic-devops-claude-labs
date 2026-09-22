@@ -30,6 +30,12 @@
     "expect": "pass"
   },
   {
+    "id": "m5-version-from-environment",
+    "description": "YOUR OPS CRITERION: /version reports the version the PLATFORM set, not a hardcoded constant — start it with APP_VERSION and the endpoint must echo that value",
+    "command": "PY=python3; [ -x \"$PWD/app/orders-api/.venv/bin/python\" ] && PY=\"$PWD/app/orders-api/.venv/bin/python\"; ( cd app/orders-api && APP_VERSION=9.9.9-probe \"$PY\" -c 'from fastapi.testclient import TestClient; from src.main import create_app; assert TestClient(create_app()).get(\"/version\").json()[\"version\"] == \"9.9.9-probe\"' >/dev/null 2>&1 ) && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
     "id": "m5-contract-boundary-authored",
     "description": "YOUR CONTRACT: target is set and at least two actions are explicitly denied — you wrote the boundary, and a boundary with nothing denied is not a boundary",
     "command": "[ -f agentops/m5-task-contract.yaml ] || { echo missing; exit 0; }; t=$(yq -r '.task.target // \"\"' agentops/m5-task-contract.yaml); n=$(yq -r '.task.actions.denied | length // 0' agentops/m5-task-contract.yaml 2>/dev/null); [ -n \"$t\" ] && [ \"$n\" -ge 2 ] && echo bounded || echo unbounded",

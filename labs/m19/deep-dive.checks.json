@@ -64,5 +64,11 @@
     "description": "PACKAGING BOUNDARY: the MANIFEST separates what ships (reusable governance) from what stays project-specific (Northstar incidents, fixtures, answer keys) — the starter is portable, not a copy of one repo",
     "command": "grep -qi 'stays project-specific' starter/MANIFEST.md && grep -qi 'belongs in the starter' starter/MANIFEST.md && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m19dd-marketplace-publishes-the-starter",
+    "description": "DISTRIBUTION: a .claude-plugin/marketplace.json publishes the starter, and its plugin name matches the plugin manifest — a versioned layer nobody can install is a tarball with good intentions, and a shelf whose label disagrees with the box installs the wrong thing",
+    "command": "M=.claude-plugin/marketplace.json; P=starter/.claude-plugin/plugin.json; [ -f \"$M\" ] && [ -f \"$P\" ] || { echo fail; exit 0; }; a=$(jq -r '.plugins[0].name' \"$M\" 2>/dev/null); b=$(jq -r '.name' \"$P\" 2>/dev/null); src=$(jq -r '.plugins[0].source' \"$M\" 2>/dev/null); [ -n \"$a\" ] && [ \"$a\" = \"$b\" ] && [ -f \"${src%/}/.claude-plugin/plugin.json\" ] && echo pass || echo fail",
+    "expect": "pass"
   }
 ]

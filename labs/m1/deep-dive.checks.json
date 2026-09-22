@@ -1,0 +1,20 @@
+[
+  {
+    "id": "m1dd-readyz-http-200-is-a-weak-check",
+    "description": "GATE AUDIT: /readyz answers HTTP 200 even while its body reports the dependency down — the grader's own first check passes on the broken endpoint, which is why a gate has to be read rather than trusted by its name",
+    "command": "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/readyz 2>/dev/null | grep -q '^200$' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m1dd-code-path-check-discriminates",
+    "description": "GATE AUDIT: the code-path check is the one that actually measures the repair — it counts 1 on the fixed readiness code and 0 on the unfixed, unlike the HTTP-status check which cannot tell them apart",
+    "command": "[ \"$(grep -c 'inventory_api_url}/healthz' app/orders-api/src/health.py 2>/dev/null)\" = \"1\" ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m1dd-helm-probe-check-discriminates",
+    "description": "GATE AUDIT: the second discriminating surface — the Helm readiness probe path — is /healthz, so the repair holds where the cluster actually calls it and not only where the code does",
+    "command": "python3 -c \"import re,sys;t=open('platform/helm/orders-api/values.yaml').read();m=re.search(r'readinessProbe:.*?path:\\s*(\\S+)',t,re.S);sys.exit(0 if m and m.group(1)=='/healthz' else 1)\" >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  }
+]

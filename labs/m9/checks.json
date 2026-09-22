@@ -72,8 +72,26 @@
     "expect": "pass"
   },
   {
+    "id": "m9-your-role-exists",
+    "description": "YOUR ROLE: .claude/agents/probe-auditor.md exists with name + description frontmatter — the first agent in this course that you decided the system needed, not one you rebuilt from a reference",
+    "command": "F=.claude/agents/probe-auditor.md; [ -f \"$F\" ] && grep -q '^name:' \"$F\" && grep -q '^description:' \"$F\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-your-role-readonly-by-capability",
+    "description": "YOUR ROLE: probe-auditor carries NO write tool — a role that can edit the files it audits is grading its own homework, so the boundary is structural, not a promise in its prose",
+    "command": "bash scripts/role-authority-check.sh probe-auditor write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m9-your-role-in-authority-matrix",
+    "description": "YOUR ROLE: probe-auditor is wired into contracts/authority-matrix.yaml with an empty write list — a role outside the matrix is undeclared authority nobody can audit",
+    "command": "python3 -c \"import yaml,sys; r=yaml.safe_load(open('contracts/authority-matrix.yaml'))['roles'].get('probe-auditor'); sys.exit(0 if r is not None and len(r['permissions']['write'])==0 else 1)\" >/dev/null 2>&1 && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
     "id": "m9-rebuild-notes-authored",
-    "description": "YOUR REBUILD: agentops/rebuild-notes-roles.md exists — every role file shipped with the workspace, so the comparison is the one artifact this module adds",
+    "description": "YOUR REBUILD: agentops/rebuild-notes-roles.md exists — the two roles you rebuilt from a specification shipped with the workspace, so what you learned from the diff is the artifact",
     "command": "[ -f agentops/rebuild-notes-roles.md ] && echo pass || echo fail",
     "expect": "pass"
   },
