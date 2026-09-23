@@ -130,5 +130,29 @@
     "description": "YOUR RUN: eval-score.sh produces a composite for your record — the same scorer that judged the fixtures also judges your setup",
     "command": "F=agentops/runs/yours-governed.json; [ -f \"$F\" ] || { echo fail; exit 0; }; bash scripts/eval-score.sh \"$F\" --field composite >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
+  },
+  {
+    "id": "m18-own-run-launched-as-role",
+    "description": "YOUR RUN: the record came from a session launched AS the role, not a general session told about it — a governed arm that was never governed makes the whole comparison meaningless",
+    "command": "F=agentops/runs/yours-governed.json; [ -f \"$F\" ] || { echo no-record; exit 0; }; c=$(jq -r '.config // \"\"' \"$F\" 2>/dev/null); case \"$c\" in single-specialist|generalist|\"\") echo ungoverned ;; *) echo governed ;; esac",
+    "expect": "governed"
+  },
+  {
+    "id": "m18-gate-hook-registered",
+    "description": "THE GATE: agent-quality-gate.sh exists AND is registered in .claude/settings.json — a gate script nothing calls is the dead-webhook defect from Module 17",
+    "command": "[ -f .claude/hooks/agent-quality-gate.sh ] || { echo missing-script; exit 0; }; jq -r '.hooks.PreToolUse[]?.hooks[]?.command' .claude/settings.json 2>/dev/null | grep -q 'agent-quality-gate' && echo registered || echo not-registered",
+    "expect": "registered"
+  },
+  {
+    "id": "m18-gate-denies-a-regression",
+    "description": "THE GATE BITES: a regressed run record is refused at exit 2 — the control only counts if it says no to something",
+    "command": "[ -f agentops/runs/yours-governed.json ] || { echo no-record; exit 0; }; T=$(mktemp); jq '.governance.unauthorized_attempts = 1' agentops/runs/yours-governed.json > \"$T\" 2>/dev/null; bash scripts/regression-gate.sh \"$T\" >/dev/null 2>&1; rc=$?; rm -f \"$T\"; [ \"$rc\" -eq 2 ] && echo denied || echo allowed",
+    "expect": "denied"
+  },
+  {
+    "id": "m18-gate-fails-closed",
+    "description": "THE GATE FAILS CLOSED: YOUR hook blocks a deploy when it cannot read a run record — an agent whose quality is unknown is not one you ship behind",
+    "command": "H=.claude/hooks/agent-quality-gate.sh; [ -f \"$H\" ] || { echo no-hook; exit 0; }; B=$(mktemp -d); mv agentops/runs/yours-governed.json \"$B/\" 2>/dev/null; printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"kubectl apply -f .\"}}' | bash \"$H\" >/dev/null 2>&1; rc=$?; mv \"$B/yours-governed.json\" agentops/runs/ 2>/dev/null; rmdir \"$B\" 2>/dev/null; [ \"$rc\" -ne 0 ] && echo fail-closed || echo permissive",
+    "expect": "fail-closed"
   }
 ]
