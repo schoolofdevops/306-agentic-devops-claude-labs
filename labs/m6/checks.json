@@ -25,7 +25,7 @@
   },
   {
     "id": "m6-tf-review-detect-script-present",
-    "description": "terraform-plan-review ships a deterministic detection script (progressive disclosure — logic lives in a script, not inline prose)",
+    "description": "terraform-plan-review ships a deterministic detection script (progressive disclosure \u2014 logic lives in a script, not inline prose)",
     "command": "[ -f .claude/skills/terraform-plan-review/scripts/detect-replace.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
@@ -50,7 +50,7 @@
   {
     "id": "m6-k8s-diagnose-read-only",
     "description": "k8s-diagnose is read-only: it must not contain kubectl apply/delete/scale/rollout in its collection zone",
-    "command": "f=.claude/skills/k8s-diagnose/SKILL.md; grep -Eqi 'kubectl (apply|delete|scale|rollout|edit)' \"$f\" && echo fail || echo pass",
+    "command": "f=.claude/skills/k8s-diagnose/SKILL.md; [ -f \"$f\" ] || { echo fail; exit 0; }; grep -Eqi 'kubectl (apply|delete|scale|rollout|edit)' \"$f\" && echo fail || echo pass",
     "expect": "pass"
   },
   {
@@ -78,26 +78,38 @@
     "expect": "pass"
   },
   {
+    "id": "m6-oncall-triage-authored",
+    "description": "YOUR SKILL: .claude/skills/oncall-triage/SKILL.md exists with name + description frontmatter \u2014 the procedure you captured in Step 2, which is the one skill in this module the workspace did not ship for you",
+    "command": "f=.claude/skills/oncall-triage/SKILL.md; [ -f \"$f\" ] && grep -q '^name:' \"$f\" && grep -q '^description:' \"$f\" && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
+    "id": "m6-oncall-triage-description-declares-both-halves",
+    "description": "YOUR SKILL: the oncall-triage description says when it fires AND when it does not \u2014 the negative half is the one people leave out, and a skill without it fires on everything and gets switched off",
+    "command": "f=.claude/skills/oncall-triage/SKILL.md; [ -f \"$f\" ] || { echo fail; exit 0; }; d=$(awk '/^description:/{f=1} f&&!/^---$/{print} /^---$/&&f{exit}' \"$f\"); echo \"$d\" | grep -qi 'use when' && echo \"$d\" | grep -Eqi 'does not|doesn.t|not for|never fires|no[t]? fire' && echo pass || echo fail",
+    "expect": "pass"
+  },
+  {
     "id": "m6-rebuild-notes-authored",
-    "description": "YOUR REBUILD: agentops/rebuild-notes-service-health.md exists — the one artifact this module ships that did not ship with the workspace, since every skill file did",
+    "description": "YOUR REBUILD: agentops/rebuild-notes-service-health.md exists \u2014 you rebuilt service-health from its specification in Step 6b and diffed it against the reference, which is the only way to find out whether you can write one of these or only read them",
     "command": "[ -f agentops/rebuild-notes-service-health.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m6-rebuild-notes-compare-both-ways",
-    "description": "YOUR REBUILD: the notes compare in both directions — what the reference had that yours missed AND something yours does better — because a reference written by someone else is not automatically right about your platform",
+    "description": "YOUR REBUILD: the notes compare in both directions \u2014 what the reference had that yours missed AND something yours does better \u2014 because a reference written by someone else is not automatically right about your platform",
     "command": "F=agentops/rebuild-notes-service-health.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'miss|lack|absent|did not|missing' \"$F\" && grep -qiE 'better|improve|stronger|clearer' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m6-command-front-door-exists",
-    "description": "YOUR COMMAND: .claude/commands/triage.md exists — the procedure now has a front door a teammate can type, not only a description the model might match",
+    "description": "YOUR COMMAND: .claude/commands/triage.md exists \u2014 the procedure now has a front door a teammate can type, not only a description the model might match",
     "command": "[ -f .claude/commands/triage.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m6-command-points-at-skill",
-    "description": "YOUR COMMAND: the command invokes oncall-triage rather than restating it — a command that copies its skill is two things to maintain and one of them goes stale",
+    "description": "YOUR COMMAND: the command invokes oncall-triage rather than restating it \u2014 a command that copies its skill is two things to maintain and one of them goes stale",
     "command": "F=.claude/commands/triage.md; S=.claude/skills/oncall-triage/SKILL.md; [ -f \"$F\" ] && [ -f \"$S\" ] || { echo fail; exit 0; }; grep -q 'oncall-triage' \"$F\" && [ \"$(wc -l < \"$F\")\" -lt \"$(wc -l < \"$S\")\" ] && echo pass || echo fail",
     "expect": "pass"
   }
