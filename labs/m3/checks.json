@@ -26,7 +26,7 @@
   {
     "id": "m3-platform-scoped-no-delete-ns",
     "description": "platform/CLAUDE.md forbids kubectl delete namespace",
-    "command": "[ -f platform/CLAUDE.md ] && grep -q 'delete namespace' platform/CLAUDE.md && echo pass || echo fail",
+    "command": "[ -f platform/CLAUDE.md ] && grep -Eqi 'delet(e|ing) (a |the )?namespace' platform/CLAUDE.md && echo pass || echo fail",
     "expect": "pass"
   },
   {
@@ -37,19 +37,19 @@
   },
   {
     "id": "m3-checkpoint-written-before-compaction",
-    "description": "YOUR CHECKPOINT: agentops/checkpoint-m3.md exists — the investigation's load-bearing facts were written to disk before the window could compact them into a summary",
+    "description": "YOUR CHECKPOINT: agentops/checkpoint-m3.md exists \u2014 the investigation's load-bearing facts were written to disk before the window could compact them into a summary",
     "command": "[ -f agentops/checkpoint-m3.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m3-checkpoint-carries-command-and-timestamp",
-    "description": "YOUR CHECKPOINT: it records the exact COMMAND that produced the readiness claim and a UTC timestamp — a checkpoint that keeps the conclusion and loses the command is the summary you were trying to avoid",
+    "description": "YOUR CHECKPOINT: it records the exact COMMAND that produced the readiness claim and a UTC timestamp \u2014 a checkpoint that keeps the conclusion and loses the command is the summary you were trying to avoid",
     "command": "F=agentops/checkpoint-m3.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'curl|/readyz' \"$F\" && grep -qE '[0-9]{4}-[0-9]{2}-[0-9]{2}T' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m3-evidence-contract-carries-an-example",
-    "description": "YOUR CONTRACT: contracts/evidence-packet.yaml carries a worked example, not just field names — a schema nobody has instantiated is a schema nobody has tested",
+    "description": "YOUR CONTRACT: contracts/evidence-packet.yaml carries a worked example, not just field names \u2014 a schema nobody has instantiated is a schema nobody has tested",
     "command": "F=contracts/evidence-packet.yaml; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qE '^example:' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   }
