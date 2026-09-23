@@ -13,13 +13,13 @@
   },
   {
     "id": "m9-read-only-roles-carry-no-write-tool",
-    "description": "the four read-only roles (sre, security-reviewer, finops, change-reviewer) declare NO write tool — the authority boundary is structural, not a promise",
+    "description": "the four read-only roles (sre, security-reviewer, finops, change-reviewer) declare NO write tool \u2014 the authority boundary is structural, not a promise",
     "command": "ok=true; for r in sre-investigator security-reviewer finops-analyst change-reviewer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 3 ] || ok=false; done; $ok && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m9-authoring-roles-carry-write-tool",
-    "description": "the two authoring roles (iac-engineer, platform-engineer) DO carry a write tool — write is inside their authority",
+    "description": "the two authoring roles (iac-engineer, platform-engineer) DO carry a write tool \u2014 write is inside their authority",
     "command": "ok=true; for r in iac-engineer platform-engineer; do scripts/role-authority-check.sh $r write >/dev/null 2>&1; [ $? -eq 0 ] || ok=false; done; $ok && echo pass || echo fail",
     "expect": "pass"
   },
@@ -37,7 +37,7 @@
   },
   {
     "id": "m9-every-role-declares-turn-budget",
-    "description": "every role file declares a turn budget — a runaway agent has no natural stopping point unless you give it one",
+    "description": "every role file declares a turn budget \u2014 a runaway agent has no natural stopping point unless you give it one",
     "command": "ok=true; for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst change-reviewer; do grep -qi 'turn budget' .claude/agents/$r.md || ok=false; done; $ok && echo pass || echo fail",
     "expect": "pass"
   },
@@ -55,7 +55,7 @@
   },
   {
     "id": "m9-evidence-validate-rejects-unsourced-packet",
-    "description": "a confident hypothesis with NO sources is rejected as contamination (exit 4) — provenance is required",
+    "description": "a confident hypothesis with NO sources is rejected as contamination (exit 4) \u2014 provenance is required",
     "command": "printf '{\"from_role\":\"sre-investigator\",\"to_role\":\"change-reviewer\",\"evidence\":{\"service\":\"orders-api\",\"status\":\"down\",\"checks\":{},\"hypothesis\":\"it is definitely the db\",\"confidence\":\"high\",\"sources\":[]},\"recommendations\":[],\"out_of_scope\":[]}' | scripts/evidence-validate.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo pass || echo fail",
     "expect": "pass"
   },
@@ -72,32 +72,38 @@
     "expect": "pass"
   },
   {
+    "id": "m9-bash-roles-declare-execute-authority",
+    "description": "AUTHORITY, EXECUTE AXIS: every role that declares Bash has a non-empty execute list in the authority matrix \u2014 a role holding a shell while the matrix authorises nothing to run is undeclared authority, and the write axis alone never catches it",
+    "command": "python3 - <<'CHK' >/dev/null 2>&1 && echo pass || echo fail\nimport yaml,re,pathlib,sys\nd=yaml.safe_load(open('contracts/authority-matrix.yaml'))\nroles=d.get('roles',d)\nbad=[]\nfor f in sorted(pathlib.Path('.claude/agents').glob('*.md')):\n    m=re.search(r'^tools:\\s*(.+)$',f.read_text(),re.M)\n    if not m or 'Bash' not in m.group(1): continue\n    r=roles.get(f.stem)\n    if not isinstance(r,dict) or 'permissions' not in r: continue\n    if not r['permissions'].get('execute'): bad.append(f.stem)\nsys.exit(1 if bad else 0)\nCHK",
+    "expect": "pass"
+  },
+  {
     "id": "m9-your-role-exists",
-    "description": "YOUR ROLE: .claude/agents/probe-auditor.md exists with name + description frontmatter — the first agent in this course that you decided the system needed, not one you rebuilt from a reference",
+    "description": "YOUR ROLE: .claude/agents/probe-auditor.md exists with name + description frontmatter \u2014 the first agent in this course that you decided the system needed, not one you rebuilt from a reference",
     "command": "F=.claude/agents/probe-auditor.md; [ -f \"$F\" ] && grep -q '^name:' \"$F\" && grep -q '^description:' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m9-your-role-readonly-by-capability",
-    "description": "YOUR ROLE: probe-auditor carries NO write tool — a role that can edit the files it audits is grading its own homework, so the boundary is structural, not a promise in its prose",
+    "description": "YOUR ROLE: probe-auditor carries NO write tool \u2014 a role that can edit the files it audits is grading its own homework, so the boundary is structural, not a promise in its prose",
     "command": "bash scripts/role-authority-check.sh probe-auditor write >/dev/null 2>&1; [ $? -eq 3 ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m9-your-role-in-authority-matrix",
-    "description": "YOUR ROLE: probe-auditor is wired into contracts/authority-matrix.yaml with an empty write list — a role outside the matrix is undeclared authority nobody can audit",
+    "description": "YOUR ROLE: probe-auditor is wired into contracts/authority-matrix.yaml with an empty write list \u2014 a role outside the matrix is undeclared authority nobody can audit",
     "command": "python3 -c \"import yaml,sys; r=yaml.safe_load(open('contracts/authority-matrix.yaml'))['roles'].get('probe-auditor'); sys.exit(0 if r is not None and len(r['permissions']['write'])==0 else 1)\" >/dev/null 2>&1 && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m9-rebuild-notes-authored",
-    "description": "YOUR REBUILD: agentops/rebuild-notes-roles.md exists — the two roles you rebuilt from a specification shipped with the workspace, so what you learned from the diff is the artifact",
+    "description": "YOUR REBUILD: agentops/rebuild-notes-roles.md exists \u2014 the two roles you rebuilt from a specification shipped with the workspace, so what you learned from the diff is the artifact",
     "command": "[ -f agentops/rebuild-notes-roles.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m9-rebuild-notes-cover-authority-levers",
-    "description": "YOUR REBUILD: the notes address the levers that carry authority — tools and model — rather than wording, because a missing disallowedTools line reads cosmetic and is the whole boundary",
+    "description": "YOUR REBUILD: the notes address the levers that carry authority \u2014 tools and model \u2014 rather than wording, because a missing disallowedTools line reads cosmetic and is the whole boundary",
     "command": "F=agentops/rebuild-notes-roles.md; [ -f \"$F\" ] || { echo fail; exit 0; }; grep -qiE 'tools' \"$F\" && grep -qiE 'model|opus|haiku|sonnet' \"$F\" && echo pass || echo fail",
     "expect": "pass"
   }

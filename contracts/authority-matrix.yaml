@@ -42,7 +42,10 @@ roles:
     description: "Reviews security posture, policies, IAM, network rules"
     permissions:
       read: ["platform/policies/", "platform/kubeconfigs/", "infra/", "contracts/"]
-      execute: []
+      # This role declares Bash, so it CAN execute. Declaring Bash also displaces Grep and
+      # Glob from the session, which is why it searches by shelling out. These are the
+      # read-only search commands it actually runs - measured, not assumed.
+      execute: ["rg", "fd", "platform/secfixtures/scan.sh"]
       write: ["platform/policies/"]
       approve: ["network-policy-changes", "rbac-changes"]
     constraints:
