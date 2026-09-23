@@ -1,139 +1,139 @@
 [
   {
     "id": "m19-capstone-orchestrator-present",
-    "description": "PACKAGING: the capstone orchestrator ships with the starter and is executable — the 14-step workflow is a runnable artifact, not a slideshow",
+    "description": "PACKAGING: the capstone orchestrator ships with the starter and is executable \u2014 the 14-step workflow is a runnable artifact, not a slideshow",
     "command": "[ -x scripts/capstone-triage.sh ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m19-incident-ticket-present",
-    "description": "TRIAGE DISCIPLINE: the INC-006 compound incident ticket exists — you validate the incident before you touch anything",
+    "description": "TRIAGE DISCIPLINE: the INC-006 compound incident ticket exists \u2014 you validate the incident before you touch anything",
     "command": "[ -f incidents/INC-006-campaign-capstone.md ] && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m19-triage-lock-before-investigate",
-    "description": "TRIAGE DISCIPLINE (lock before investigate): acquiring the triage lock for INC-006 succeeds, and a concurrent second acquire for the same correlation id is rejected — exactly one loop owns the incident",
+    "description": "TRIAGE DISCIPLINE (lock before investigate): acquiring the triage lock for INC-006 succeeds, and a concurrent second acquire for the same correlation id is rejected \u2014 exactly one loop owns the incident",
     "command": "scripts/triage-lock.sh --release --cid m19-check >/dev/null 2>&1; scripts/triage-lock.sh --acquire --cid m19-check >/dev/null 2>&1 && ! scripts/triage-lock.sh --acquire --cid m19-check >/dev/null 2>&1 && { scripts/triage-lock.sh --release --cid m19-check >/dev/null 2>&1; echo locked; } || echo open",
     "expect": "locked"
   },
   {
     "id": "m19-phase1-triage-gate",
-    "description": "TRIAGE DISCIPLINE: Phase 1 gate passes — incident locked, evidence present, hypotheses formed, tracks delegated",
+    "description": "TRIAGE DISCIPLINE: Phase 1 gate passes \u2014 incident locked, evidence present, hypotheses formed, tracks delegated",
     "command": "scripts/capstone-triage.sh reset >/dev/null 2>&1; scripts/capstone-triage.sh phase1 --field verdict 2>/dev/null",
     "expect": "pass"
   },
   {
     "id": "m19-hypotheses-independent",
-    "description": "EVIDENCE QUALITY: the three capstone hypotheses each carry their OWN sources (>=1) — structured, multi-source evidence, not one guess echoed three times",
+    "description": "EVIDENCE QUALITY: the three capstone hypotheses each carry their OWN sources (>=1) \u2014 structured, multi-source evidence, not one guess echoed three times",
     "command": "jq -e 'length==3 and (all(.[]; (.sources|length)>=1 and .derived_from==null))' fixtures/capstone/hypotheses.json >/dev/null && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m19-hypotheses-corroborate",
-    "description": "EVIDENCE QUALITY: independent tracks converge on one root cause — real corroboration, verified by the synthesizer rather than asserted",
+    "description": "EVIDENCE QUALITY: independent tracks converge on one root cause \u2014 real corroboration, verified by the synthesizer rather than asserted",
     "command": "scripts/synthesize-hypotheses.sh fixtures/capstone/hypotheses.json 2>/dev/null | awk -F= '/^verdict=/{print $2}'",
     "expect": "corroborated"
   },
   {
     "id": "m19-consensus-theater-rejected",
-    "description": "EVIDENCE QUALITY (anti-consensus-theater): a packet that derives from a peer instead of its own evidence is rejected — agreement built on anchoring is worth nothing",
+    "description": "EVIDENCE QUALITY (anti-consensus-theater): a packet that derives from a peer instead of its own evidence is rejected \u2014 agreement built on anchoring is worth nothing",
     "command": "jq '[.[0], (.[1] + {derived_from:\"application-retry\", sources:[]})]' fixtures/capstone/hypotheses.json | scripts/synthesize-hypotheses.sh >/dev/null 2>&1; [ $? -eq 4 ] && echo rejected || echo accepted",
     "expect": "rejected"
   },
   {
     "id": "m19-role-bundle-sre-readonly",
-    "description": "ROLE ADHERENCE: the sre-investigator is a reader — write authority is structurally absent, so the investigator can query but never edit",
+    "description": "ROLE ADHERENCE: the sre-investigator is a reader \u2014 write authority is structurally absent, so the investigator can query but never edit",
     "command": "scripts/role-authority-check.sh sre-investigator write >/dev/null 2>&1; [ $? -eq 3 ] && echo readonly || echo writer",
     "expect": "readonly"
   },
   {
     "id": "m19-role-bundle-reviewer-readonly",
-    "description": "ROLE ADHERENCE: the change-reviewer inspects but never modifies — an independent reviewer with write authority is not independent",
+    "description": "ROLE ADHERENCE: the change-reviewer inspects but never modifies \u2014 an independent reviewer with write authority is not independent",
     "command": "scripts/role-authority-check.sh change-reviewer write >/dev/null 2>&1; [ $? -eq 3 ] && echo readonly || echo writer",
     "expect": "readonly"
   },
   {
     "id": "m19-role-bundle-iac-writer",
-    "description": "ROLE ADHERENCE: the iac-engineer IS a writer — authoring HCL is inside its role, so the boundary is scoped, not blanket-deny",
+    "description": "ROLE ADHERENCE: the iac-engineer IS a writer \u2014 authoring HCL is inside its role, so the boundary is scoped, not blanket-deny",
     "command": "scripts/role-authority-check.sh iac-engineer write >/dev/null 2>&1 && echo writer || echo readonly",
     "expect": "writer"
   },
   {
     "id": "m19-seven-role-bundles",
-    "description": "ROLE ADHERENCE: all seven governed-team role bundles resolve in the authority matrix — the full team the capstone operates with",
+    "description": "ROLE ADHERENCE: all seven governed-team role bundles resolve in the authority matrix \u2014 the full team the capstone operates with",
     "command": "for r in sre-investigator iac-engineer platform-engineer security-reviewer finops-analyst mlops-engineer change-reviewer; do grep -q \"^  $r:\" contracts/authority-matrix.yaml || { echo missing; exit 0; }; done; echo pass",
     "expect": "pass"
   },
   {
     "id": "m19-phase2-investigation-gate",
-    "description": "ROLE ADHERENCE: Phase 2 gate passes — the parallel tracks investigate independently and reconcile on one root cause",
+    "description": "ROLE ADHERENCE: Phase 2 gate passes \u2014 the parallel tracks investigate independently and reconcile on one root cause",
     "command": "scripts/capstone-triage.sh phase2 --field verdict 2>/dev/null",
     "expect": "pass"
   },
   {
     "id": "m19-dangerous-plan-blocked",
-    "description": "INFRASTRUCTURE JUDGMENT: the review pipeline BLOCKS the dangerous prod plan (open 0.0.0.0/0 security groups) — the agent proposes, the chain rejects",
+    "description": "INFRASTRUCTURE JUDGMENT: the review pipeline BLOCKS the dangerous prod plan (open 0.0.0.0/0 security groups) \u2014 the agent proposes, the chain rejects",
     "command": "scripts/change-pipeline.sh infra/fixtures/plan-wide-network.json --field verdict 2>/dev/null",
     "expect": "block"
   },
   {
     "id": "m19-security-objection-surfaced",
-    "description": "INFRASTRUCTURE JUDGMENT: the security stage independently flags the exposure — the block is a reasoned objection, not a coin flip",
+    "description": "INFRASTRUCTURE JUDGMENT: the security stage independently flags the exposure \u2014 the block is a reasoned objection, not a coin flip",
     "command": "scripts/tf-security-scan.sh infra/fixtures/plan-wide-network.json --field verdict 2>/dev/null",
     "expect": "block"
   },
   {
     "id": "m19-oversize-db-present",
-    "description": "INFRASTRUCTURE JUDGMENT: the oversize plan fixture carries the db.r6g.4xlarge the incident names — the FinOps-scale concern is real and inspectable",
+    "description": "INFRASTRUCTURE JUDGMENT: the oversize plan fixture carries the db.r6g.4xlarge the incident names \u2014 the FinOps-scale concern is real and inspectable",
     "command": "jq -e '[.resource_changes[].change.after.instance_class?]|any(.==\"db.r6g.4xlarge\")' infra/fixtures/plan-oversize.json >/dev/null && echo pass || echo fail",
     "expect": "pass"
   },
   {
     "id": "m19-change-gate-denies-prod-apply",
-    "description": "REPAIR SAFETY: the PreToolUse change gate denies a direct `terraform apply` on production — repairs go proposal -> review -> gate, never direct apply",
+    "description": "REPAIR SAFETY: the PreToolUse change gate denies a direct `terraform apply` on production \u2014 repairs go proposal -> review -> gate, never direct apply",
     "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform apply -auto-approve -chdir=infra/environments/production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo denied || echo allowed",
     "expect": "denied"
   },
   {
     "id": "m19-change-gate-allows-plan",
-    "description": "REPAIR SAFETY: the same gate ALLOWS a read-only `terraform plan` — the boundary blocks the irreversible action, not the investigation",
+    "description": "REPAIR SAFETY: the same gate ALLOWS a read-only `terraform plan` \u2014 the boundary blocks the irreversible action, not the investigation",
     "command": "printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform plan -chdir=infra/environments/production\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo allowed || echo denied",
     "expect": "allowed"
   },
   {
     "id": "m19-phase3-repair-review-gate",
-    "description": "REPAIR SAFETY: Phase 3 gate passes — dangerous plan blocked by the review chain and write authority scoped to writers only",
+    "description": "REPAIR SAFETY: Phase 3 gate passes \u2014 dangerous plan blocked by the review chain and write authority scoped to writers only",
     "command": "scripts/capstone-triage.sh phase3 --field verdict 2>/dev/null",
     "expect": "pass"
   },
   {
     "id": "m19-canary-promotes-healthy",
-    "description": "REPAIR SAFETY (deploy & verify): a healthy canary is promoted — the safe release ships only after its SLOs verify",
+    "description": "REPAIR SAFETY (deploy & verify): a healthy canary is promoted \u2014 the safe release ships only after its SLOs verify",
     "command": "scripts/canary-verify.sh fixtures/canary/canary-healthy.json --field verdict 2>/dev/null",
     "expect": "promote"
   },
   {
     "id": "m19-canary-rolls-back-unhealthy",
-    "description": "REPAIR SAFETY (deploy & verify): a degraded canary is rolled back — the verify step catches the bad deploy before it takes the fleet",
+    "description": "REPAIR SAFETY (deploy & verify): a degraded canary is rolled back \u2014 the verify step catches the bad deploy before it takes the fleet",
     "command": "scripts/canary-verify.sh fixtures/canary/canary-unhealthy.json --field verdict 2>/dev/null",
     "expect": "rollback"
   },
   {
     "id": "m19-phase4-deploy-verify-gate",
-    "description": "REPAIR SAFETY: Phase 4 gate passes — healthy canary promoted, degraded canary rolled back",
+    "description": "REPAIR SAFETY: Phase 4 gate passes \u2014 healthy canary promoted, degraded canary rolled back",
     "command": "scripts/capstone-triage.sh phase4 --field verdict 2>/dev/null",
     "expect": "pass"
   },
   {
     "id": "m19-eval-score-capstone-pass",
-    "description": "POST-INCIDENT EVALUATION: the capstone run scores composite PASS on all five evaluation dimensions — a right outcome reached by right reasoning",
+    "description": "POST-INCIDENT EVALUATION: the capstone run scores composite PASS on all five evaluation dimensions \u2014 a right outcome reached by right reasoning",
     "command": "scripts/eval-score.sh fixtures/capstone/run-capstone.json --field verdict 2>/dev/null",
     "expect": "pass"
   },
   {
     "id": "m19-regression-gate-guards-capstone",
-    "description": "POST-INCIDENT EVALUATION: the regression gate passes the capstone run and would fail the build on a degraded one — quality is code with a CI gate",
+    "description": "POST-INCIDENT EVALUATION: the regression gate passes the capstone run and would fail the build on a degraded one \u2014 quality is code with a CI gate",
     "command": "scripts/regression-gate.sh fixtures/capstone/run-capstone.json --field verdict 2>/dev/null",
     "expect": "pass"
   },
@@ -145,20 +145,20 @@
   },
   {
     "id": "m19-tracks-learner-produced",
-    "description": "PART I: the four investigation tracks in agentops/capstone/tracks/ were produced by your subagents, each with derived_from null — not read from fixtures/capstone/",
+    "description": "PART I: the three investigation tracks in agentops/capstone/tracks/ were produced by your roles, each with derived_from null \u2014 three dimensions, each concluding from its own evidence, not read from fixtures/capstone/",
     "command": "ls agentops/capstone/tracks/*.json >/dev/null 2>&1 || { echo none; exit 0; }; n=$(ls agentops/capstone/tracks/*.json | wc -l | tr -d ' '); jq -e -s '[.[] | .derived_from] | all(. == null)' agentops/capstone/tracks/*.json >/dev/null 2>&1 && [ \"$n\" -ge 3 ] && echo independent || echo derivative",
     "expect": "independent"
   },
   {
     "id": "m19-nano-declared",
-    "description": "NANO PROJECT: you named the agent you built in agentops/capstone/nano-project.txt — the grader follows your declaration, whichever option you chose",
+    "description": "NANO PROJECT: you named the agent you built in agentops/capstone/nano-project.txt \u2014 the grader follows your declaration, whichever option you chose",
     "command": "[ -s agentops/capstone/nano-project.txt ] && echo declared || echo undeclared",
     "expect": "declared"
   },
   {
     "id": "m19-nano-skill-is-new",
-    "description": "NANO PROJECT: the skill exists and is not one of the seven that shipped with the course — this one is yours",
-    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; for s in incident-triage k8s-diagnose release-check service-health service-restart terraform-plan-review terraform-style; do [ \"$N\" = \"$s\" ] && { echo shipped; exit 0; }; done; [ -f .claude/skills/$N/SKILL.md ] && echo new || echo missing",
+    "description": "NANO PROJECT: the skill is one YOU authored, not one that shipped with the workspace \u2014 checked against git rather than a hardcoded list, because the shipped set grows and a frozen list quietly starts accepting other people's work",
+    "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; [ -d .claude/skills/$N ] || { echo missing; exit 0; }; git ls-files --error-unmatch .claude/skills/$N/SKILL.md >/dev/null 2>&1 && echo shipped || echo new",
     "expect": "new"
   },
   {
@@ -169,43 +169,43 @@
   },
   {
     "id": "m19-nano-role-present",
-    "description": "NANO PROJECT: a scoped role ships alongside the skill — the tool bundle is what makes the dangerous action structurally impossible",
+    "description": "NANO PROJECT: a scoped role ships alongside the skill \u2014 the tool bundle is what makes the dangerous action structurally impossible",
     "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; [ -f .claude/agents/$N.md ] && echo present || echo missing",
     "expect": "present"
   },
   {
     "id": "m19-nano-role-in-matrix",
-    "description": "NANO PROJECT: the role is wired into contracts/authority-matrix.yaml — a role outside the matrix is undeclared authority",
+    "description": "NANO PROJECT: the role is wired into contracts/authority-matrix.yaml \u2014 a role outside the matrix is undeclared authority",
     "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; grep -q \"$N\" contracts/authority-matrix.yaml && echo wired || echo unwired",
     "expect": "wired"
   },
   {
     "id": "m19-nano-authority-is-readonly",
-    "description": "NANO PROJECT: role-authority-check refuses a write for your role — the agent you shipped cannot mutate what it inspects",
+    "description": "NANO PROJECT: role-authority-check refuses a write for your role \u2014 the agent you shipped cannot mutate what it inspects",
     "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; scripts/role-authority-check.sh \"$N\" write >/dev/null 2>&1; [ $? -ne 0 ] && echo blocked || echo writable",
     "expect": "blocked"
   },
   {
     "id": "m19-nano-in-starter",
-    "description": "NANO PROJECT: it ships — a row in starter/MANIFEST.md and a stage entry in starter/adoption-ladder.yaml with its own trust gate",
+    "description": "NANO PROJECT: it ships \u2014 a row in starter/MANIFEST.md and a stage entry in starter/adoption-ladder.yaml with its own trust gate",
     "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; grep -q \"$N\" starter/MANIFEST.md && grep -q \"$N\" starter/adoption-ladder.yaml && echo shipped || echo unpackaged",
     "expect": "shipped"
   },
   {
     "id": "m19-nano-changelog",
-    "description": "NANO PROJECT: starter/CHANGELOG.md records the addition — a starter that changes without a changelog entry cannot be rolled back deliberately",
+    "description": "NANO PROJECT: starter/CHANGELOG.md records the addition \u2014 a starter that changes without a changelog entry cannot be rolled back deliberately",
     "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; grep -q \"$N\" starter/CHANGELOG.md && echo recorded || echo silent",
     "expect": "recorded"
   },
   {
     "id": "m19-nano-output-validates",
-    "description": "NANO PROJECT: the packet your agent produced passes an existing validator — output nothing else can read is not a handoff",
+    "description": "NANO PROJECT: the packet your agent produced passes an existing validator \u2014 output nothing else can read is not a handoff",
     "command": "N=$(head -1 agentops/capstone/nano-project.txt 2>/dev/null | tr -d \"[:space:]\"); [ -n \"$N\" ] || { echo undeclared; exit 0; }; F=agentops/capstone/$N-packet.json; [ -f $F ] || { echo missing; exit 0; }; scripts/evidence-validate.sh $F >/dev/null 2>&1 && echo valid || echo invalid",
     "expect": "valid"
   },
   {
     "id": "m19-nano-break-it-evidence",
-    "description": "NANO PROJECT: you broke it on purpose and captured the finding — agentops/capstone/break-it.md names what the agent caught",
+    "description": "NANO PROJECT: you broke it on purpose and captured the finding \u2014 agentops/capstone/break-it.md names what the agent caught",
     "command": "[ -s agentops/capstone/break-it.md ] && echo captured || echo missing",
     "expect": "captured"
   },
@@ -214,5 +214,17 @@
     "description": "NANO PROJECT: agentops/capstone/defense.md answers all six questions, including what it cannot do and what would make you turn it off",
     "command": "F=agentops/capstone/defense.md; [ -f $F ] || { echo missing; exit 0; }; n=$(grep -c '^##' $F); [ \"$n\" -ge 6 ] && echo defended || echo incomplete",
     "expect": "defended"
+  },
+  {
+    "id": "m19-reconciliation-resolves-the-split",
+    "description": "PHASE 2: agentops/capstone/reconciliation.json accounts for every dimension that reported, records each track's ACTUAL conclusion, and names a primary with a basis \u2014 a compound incident is resolved by evidence, not by making the agents agree",
+    "command": "bash scripts/capstone-triage.sh phase2 --field verdict 2>/dev/null || echo unresolved",
+    "expect": "pass"
+  },
+  {
+    "id": "m19-phase5-scores-your-run",
+    "description": "PHASE 5: the scoring gate runs and counts how many tracks concluded independently \u2014 the phase the lab called for eighteen modules and the orchestrator never had",
+    "command": "bash scripts/capstone-triage.sh phase5 --field verdict 2>/dev/null || echo missing",
+    "expect": "pass"
   }
 ]
