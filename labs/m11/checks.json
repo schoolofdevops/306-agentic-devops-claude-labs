@@ -1,103 +1,103 @@
 [
   {
     "id": "m11-state-safety-apply-denied",
-    "description": "STATE SAFETY: the change gate DENIES terraform apply on production — mutation is a separate authority the agent cannot exercise",
+    "description": "STATE SAFETY: the change gate DENIES terraform apply on production \u2014 mutation is a separate authority the agent cannot exercise",
     "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod apply\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 2 ] && echo denied || echo allowed",
     "expect": "denied"
   },
   {
     "id": "m11-state-safety-plan-allowed",
-    "description": "STATE SAFETY: terraform plan on production is ALLOWED — planning is read-only, only apply is gated",
+    "description": "STATE SAFETY: terraform plan on production is ALLOWED \u2014 planning is read-only, only apply is gated",
     "command": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"terraform -chdir=infra/environments/prod plan\"}}' | scripts/hooks/change-gate.sh >/dev/null 2>&1; [ $? -eq 0 ] && echo allowed || echo denied",
     "expect": "allowed"
   },
   {
     "id": "m11-plan-good-clean",
-    "description": "PLAN ANALYSIS: a plan of pure creates (the known-good plan) analyzes to verdict 'clean' — nothing destroyed, nothing replaced",
+    "description": "PLAN ANALYSIS: a plan of pure creates (the known-good plan) analyzes to verdict 'clean' \u2014 nothing destroyed, nothing replaced",
     "command": "scripts/plan-analyze.sh infra/fixtures/plan-good.json --field verdict",
     "expect": "clean"
   },
   {
     "id": "m11-plan-blast-radius",
-    "description": "BLAST RADIUS: the good plan touches all 31 resources — the analyzer reports the count a reviewer would gate on",
+    "description": "BLAST RADIUS: the good plan touches all 31 resources \u2014 the analyzer reports the count a reviewer would gate on",
     "command": "scripts/plan-analyze.sh infra/fixtures/plan-good.json --field blast_radius",
     "expect": "31"
   },
   {
     "id": "m11-stateful-replace-blocks",
-    "description": "STATEFUL REPLACE: the plan that recreates the RDS instance analyzes to 'block' — a stateful replacement is a data-loss risk, not a routine change",
+    "description": "STATEFUL REPLACE: the plan that recreates the RDS instance analyzes to 'block' \u2014 a stateful replacement is a data-loss risk, not a routine change",
     "command": "scripts/plan-analyze.sh infra/fixtures/plan-stateful-replace.json --field verdict",
     "expect": "block"
   },
   {
     "id": "m11-stateful-replace-names-resource",
-    "description": "STATEFUL REPLACE: the analyzer names the exact resource being destroyed and recreated — the database, so the finding is actionable",
+    "description": "STATEFUL REPLACE: the analyzer names the exact resource being destroyed and recreated \u2014 the database, so the finding is actionable",
     "command": "scripts/plan-analyze.sh infra/fixtures/plan-stateful-replace.json --field stateful_replaced",
     "expect": "module.database.aws_db_instance.main"
   },
   {
     "id": "m11-security-scan-wide-network-blocks",
-    "description": "SECURITY SCAN: the plan adding a 0.0.0.0/0 rule scans to 'block' — an internet-open ingress on a datastore port is a page-the-team finding",
+    "description": "SECURITY SCAN: the plan adding a 0.0.0.0/0 rule scans to 'block' \u2014 an internet-open ingress on a datastore port is a page-the-team finding",
     "command": "scripts/tf-security-scan.sh infra/fixtures/plan-wide-network.json --field verdict",
     "expect": "block"
   },
   {
     "id": "m11-security-scan-names-sensitive-port",
-    "description": "SENSITIVE EXPOSURE: the scan pinpoints the rule opening Postgres (5432) to the whole internet — the datastore, not a web tier",
+    "description": "SENSITIVE EXPOSURE: the scan pinpoints the rule opening Postgres (5432) to the whole internet \u2014 the datastore, not a web tier",
     "command": "scripts/tf-security-scan.sh infra/fixtures/plan-wide-network.json --field sensitive_exposed",
     "expect": "module.networking.aws_security_group_rule.db_public_debug:5432"
   },
   {
     "id": "m11-security-scan-good-clean",
-    "description": "SECURITY SCAN: the good plan has no wide-open or public exposure — verdict 'clean', so the scan does not cry wolf",
+    "description": "SECURITY SCAN: the good plan has no wide-open or public exposure \u2014 verdict 'clean', so the scan does not cry wolf",
     "command": "scripts/tf-security-scan.sh infra/fixtures/plan-good.json --field verdict",
     "expect": "clean"
   },
   {
     "id": "m11-cost-delta",
-    "description": "COST ESTIMATION: the oversize change is a +$2847/mo delta over baseline — the number that turns a sizing choice into a budget decision",
+    "description": "COST ESTIMATION: the oversize change is a +$2847/mo delta over baseline \u2014 the number that turns a sizing choice into a budget decision",
     "command": "scripts/cost-compare.sh infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field delta",
     "expect": "2847"
   },
   {
     "id": "m11-cost-blocks-over-2x",
-    "description": "FINOPS THRESHOLD: a per-resource cost jump past 2x (the RDS instance grows 16x) blocks — the FinOps role's 'flag changes > 2x' rule, enforced",
+    "description": "FINOPS THRESHOLD: a per-resource cost jump past 2x (the RDS instance grows 16x) blocks \u2014 the FinOps role's 'flag changes > 2x' rule, enforced",
     "command": "scripts/cost-compare.sh infra/fixtures/cost-estimates/estimate-good.json infra/fixtures/cost-estimates/estimate-oversize.json --field verdict",
     "expect": "block"
   },
   {
     "id": "m11-drift-detects-new-wide-open",
-    "description": "ENVIRONMENT DRIFT: diffing the candidate against the known-good baseline surfaces the NEW 0.0.0.0/0 rule that drifted in — verdict 'block'",
+    "description": "ENVIRONMENT DRIFT: diffing the candidate against the known-good baseline surfaces the NEW 0.0.0.0/0 rule that drifted in \u2014 verdict 'block'",
     "command": "scripts/plan-drift.sh infra/fixtures/plan-good.json infra/fixtures/plan-wide-network.json --field verdict",
     "expect": "block"
   },
   {
     "id": "m11-rollback-stateful-requires-restore",
-    "description": "ROLLBACK REVIEW: the stateful-replace plan is judged irreversible — its approval REQUIRES a restore-from-backup plan, it is not a clean roll back",
+    "description": "ROLLBACK REVIEW: the stateful-replace plan is judged irreversible \u2014 its approval REQUIRES a restore-from-backup plan, it is not a clean roll back",
     "command": "scripts/rollback-review.sh infra/fixtures/plan-stateful-replace.json --field verdict",
     "expect": "requires-restore-plan"
   },
   {
     "id": "m11-rollback-good-approve",
-    "description": "ROLLBACK REVIEW: a pure-create plan is reversible (destroy what you made) — verdict 'approve', no restore plan needed",
+    "description": "ROLLBACK REVIEW: a pure-create plan is reversible (destroy what you made) \u2014 verdict 'approve', no restore plan needed",
     "command": "scripts/rollback-review.sh infra/fixtures/plan-good.json --field verdict",
     "expect": "approve"
   },
   {
     "id": "m11-authority-iac-can-write",
-    "description": "AUTHORITY: the IaC engineer STRUCTURALLY carries a write tool — authoring HCL is in its role (exit 0)",
+    "description": "AUTHORITY: the IaC engineer STRUCTURALLY carries a write tool \u2014 authoring HCL is in its role (exit 0)",
     "command": "scripts/role-authority-check.sh iac-engineer write >/dev/null 2>&1; [ $? -eq 0 ] && echo capable || echo blocked",
     "expect": "capable"
   },
   {
     "id": "m11-authority-finops-cannot-write",
-    "description": "AUTHORITY: the FinOps analyst CANNOT write — it reads plans and prices them, it does not mutate infrastructure (exit 3)",
+    "description": "AUTHORITY: the FinOps analyst CANNOT write \u2014 it reads plans and prices them, it does not mutate infrastructure (exit 3)",
     "command": "scripts/role-authority-check.sh finops-analyst write >/dev/null 2>&1; [ $? -eq 3 ] && echo blocked || echo capable",
     "expect": "blocked"
   },
   {
     "id": "m11-agent-cost-receipt-mixed-cheaper",
-    "description": "AGENT-RUN COST RECEIPT: the mixed-model handoff chain is cheaper than running every role on opus — right-sizing the model per role is itself a FinOps decision",
+    "description": "AGENT-RUN COST RECEIPT: the mixed-model handoff chain is cheaper than running every role on opus \u2014 right-sizing the model per role is itself a FinOps decision",
     "command": "scripts/agent-cost-receipt.sh --field verdict",
     "expect": "mixed-model-cheaper"
   },
@@ -109,7 +109,7 @@
   },
   {
     "id": "m11-pipeline-blocks-stateful",
-    "description": "HANDOFF CHAIN: one stage's block stops the line — the stateful-replace plan is blocked by the pipeline even though its syntax is valid",
+    "description": "HANDOFF CHAIN: one stage's block stops the line \u2014 the stateful-replace plan is blocked by the pipeline even though its syntax is valid",
     "command": "scripts/change-pipeline.sh infra/fixtures/plan-stateful-replace.json --field verdict",
     "expect": "block"
   },
@@ -121,7 +121,7 @@
   },
   {
     "id": "m11-style-skill-present",
-    "description": "STYLE SKILL: the terraform-style skill exists — the house conventions are a written artifact the agent is held to, not a habit in one engineer's head",
+    "description": "STYLE SKILL: the terraform-style skill exists \u2014 the house conventions are a written artifact the agent is held to, not a habit in one engineer's head",
     "command": "[ -f .claude/skills/terraform-style/SKILL.md ] && echo present || echo missing",
     "expect": "present"
   },
@@ -133,97 +133,97 @@
   },
   {
     "id": "m11-module-fmt-clean",
-    "description": "YOUR MODULE: terraform fmt reports no diff — the generated HCL matches canonical formatting",
+    "description": "YOUR MODULE: terraform fmt reports no diff \u2014 the generated HCL matches canonical formatting",
     "command": "terraform -chdir=infra/modules/read-replica fmt -check >/dev/null 2>&1 && echo clean || echo unformatted",
     "expect": "clean"
   },
   {
     "id": "m11-module-role-label",
-    "description": "HOUSE STYLE: the replica resource carries a role noun, not the generic 'this' — the infrastructure names its primary resource for what it is",
+    "description": "HOUSE STYLE: the replica resource carries a role noun, not the generic 'this' \u2014 the infrastructure names its primary resource for what it is",
     "command": "M=infra/modules/read-replica/main.tf; [ -f $M ] || { echo missing; exit 0; }; grep -q 'resource \"aws_db_instance\" \"this\"' $M && echo generic || echo role-named",
     "expect": "role-named"
   },
   {
     "id": "m11-module-interpolated-name",
-    "description": "HOUSE STYLE: the replica identifier is interpolated from project+environment, not hardcoded — the module survives being reused in another environment",
+    "description": "HOUSE STYLE: the replica identifier is interpolated from project+environment, not hardcoded \u2014 the module survives being reused in another environment",
     "command": "grep -Eq 'identifier[[:space:]]*=[[:space:]]*\"\\$\\{var\\.project\\}-\\$\\{var\\.environment\\}' infra/modules/read-replica/main.tf 2>/dev/null && echo interpolated || echo hardcoded",
     "expect": "interpolated"
   },
   {
     "id": "m11-module-encryption-baseline",
-    "description": "SECURITY BASELINE: storage_encrypted is true in the module source — the baseline the security scan does NOT check, caught at authoring time by the style skill",
+    "description": "SECURITY BASELINE: storage_encrypted is true in the module source \u2014 the baseline the security scan does NOT check, caught at authoring time by the style skill",
     "command": "grep -Eq 'storage_encrypted[[:space:]]*=[[:space:]]*true' infra/modules/read-replica/main.tf 2>/dev/null && echo encrypted || echo unencrypted",
     "expect": "encrypted"
   },
   {
     "id": "m11-module-not-public",
-    "description": "SECURITY BASELINE: publicly_accessible is false — a datastore replica is never reachable from the internet, and Step 12 restored this after breaking it",
+    "description": "SECURITY BASELINE: publicly_accessible is false \u2014 a datastore replica is never reachable from the internet, and Step 12 restored this after breaking it",
     "command": "M=infra/modules/read-replica/main.tf; [ -f $M ] || { echo missing; exit 0; }; grep -Eq 'publicly_accessible[[:space:]]*=[[:space:]]*true' $M && echo public || echo private",
     "expect": "private"
   },
   {
     "id": "m11-module-outputs-described",
-    "description": "HOUSE STYLE: every output carries a description — an undocumented output is an undocumented API",
+    "description": "HOUSE STYLE: every output carries a description \u2014 an undocumented output is an undocumented API",
     "command": "O=infra/modules/read-replica/outputs.tf; [ -f $O ] || { echo missing; exit 0; }; n=$(grep -c '^output' $O); d=$(grep -c 'description' $O); [ \"$n\" -gt 0 ] && [ \"$n\" = \"$d\" ] && echo described || echo undocumented",
     "expect": "described"
   },
   {
     "id": "m11-module-secrets-not-literal",
-    "description": "SECURITY: no literal password or secret string in the module source — secrets arrive as sensitive variables",
+    "description": "SECURITY: no literal password or secret string in the module source \u2014 secrets arrive as sensitive variables",
     "command": "M=infra/modules/read-replica; [ -f $M/main.tf ] || { echo missing; exit 0; }; grep -Eiq '(password|secret)[[:space:]]*=[[:space:]]*\"[^\"$]' $M/*.tf && echo literal-secret || echo clean",
     "expect": "clean"
   },
   {
     "id": "m11-learner-plan-clean",
-    "description": "YOUR PLAN: the plan generated from YOUR module analyzes to 'clean' — a pure-create change with nothing destroyed or replaced",
+    "description": "YOUR PLAN: the plan generated from YOUR module analyzes to 'clean' \u2014 a pure-create change with nothing destroyed or replaced",
     "command": "scripts/plan-analyze.sh infra/environments/dev/plan.json --field verdict 2>/dev/null || echo no-plan",
     "expect": "clean"
   },
   {
     "id": "m11-learner-plan-security-clean",
-    "description": "YOUR PLAN: the security scan clears YOUR plan — the module you shipped has no public exposure, after you broke it in Step 8 and put it back",
+    "description": "YOUR PLAN: the security scan clears YOUR plan \u2014 the module you shipped has no public exposure, after you broke it in Step 8 and put it back",
     "command": "scripts/tf-security-scan.sh infra/environments/dev/plan.json --field verdict 2>/dev/null || echo no-plan",
     "expect": "clean"
   },
   {
     "id": "m11-child-module-authored",
-    "description": "REUSE: the alarm-notify child module exists with the three-file layout — the alarm/SNS pattern was extracted so other modules can call it instead of copying it",
+    "description": "REUSE: the alarm-notify child module exists with the three-file layout \u2014 the alarm/SNS pattern was extracted so other modules can call it instead of copying it",
     "command": "M=infra/modules/alarm-notify; { [ -f $M/main.tf ] && [ -f $M/variables.tf ] && [ -f $M/outputs.tf ]; } && echo authored || echo missing",
     "expect": "authored"
   },
   {
     "id": "m11-child-module-wired",
-    "description": "REFACTOR ACTUALLY HAPPENED: read-replica CALLS alarm-notify — a child module nothing imports is the failure Step 11 measures, and the test suite stays green through it",
+    "description": "REFACTOR ACTUALLY HAPPENED: read-replica CALLS alarm-notify \u2014 a child module nothing imports is the failure Step 11 measures, and the test suite stays green through it",
     "command": "grep -q 'source.*alarm-notify' infra/modules/read-replica/main.tf 2>/dev/null && echo wired || echo orphaned",
     "expect": "wired"
   },
   {
     "id": "m11-alarm-extracted",
-    "description": "REFACTOR ACTUALLY HAPPENED: read-replica no longer declares the SNS topic itself — the resources moved into the child module rather than being duplicated alongside it",
-    "command": "grep -qE '^resource \"aws_sns_topic\"' infra/modules/read-replica/main.tf 2>/dev/null && echo still-inline || echo extracted",
+    "description": "REFACTOR ACTUALLY HAPPENED: read-replica no longer declares the SNS topic itself \u2014 the resources moved into the child module rather than being duplicated alongside it",
+    "command": "[ -f infra/modules/read-replica/main.tf ] || { echo still-inline; exit 0; }; grep -qE '^resource \"aws_sns_topic\"' infra/modules/read-replica/main.tf && echo still-inline || echo extracted",
     "expect": "extracted"
   },
   {
     "id": "m11-child-vars-described",
-    "description": "HOUSE STYLE: every variable in the child module carries a description — a reusable module with undocumented inputs is a module nobody else can safely call",
+    "description": "HOUSE STYLE: every variable in the child module carries a description \u2014 a reusable module with undocumented inputs is a module nobody else can safely call",
     "command": "V=infra/modules/alarm-notify/variables.tf; [ -f $V ] || { echo missing; exit 0; }; n=$(grep -c '^variable' $V); d=$(grep -c 'description' $V); { [ \"$n\" -gt 0 ] && [ \"$d\" -ge \"$n\" ]; } && echo described || echo undocumented",
     "expect": "described"
   },
   {
     "id": "m11-child-outputs-described",
-    "description": "HOUSE STYLE: every output in the child module carries a description — an undocumented output is an undocumented API",
+    "description": "HOUSE STYLE: every output in the child module carries a description \u2014 an undocumented output is an undocumented API",
     "command": "O=infra/modules/alarm-notify/outputs.tf; [ -f $O ] || { echo missing; exit 0; }; n=$(grep -c '^output' $O); d=$(grep -c 'description' $O); { [ \"$n\" -gt 0 ] && [ \"$d\" -ge \"$n\" ]; } && echo described || echo undocumented",
     "expect": "described"
   },
   {
     "id": "m11-child-fmt-clean",
-    "description": "HOUSE STYLE: terraform fmt reports no diff on the child module — the extracted code is held to the same formatting bar as the module it came out of",
+    "description": "HOUSE STYLE: terraform fmt reports no diff on the child module \u2014 the extracted code is held to the same formatting bar as the module it came out of",
     "command": "terraform -chdir=infra/modules/alarm-notify fmt -check >/dev/null 2>&1 && echo clean || echo unformatted",
     "expect": "clean"
   },
   {
     "id": "m11-module-wired-into-env",
-    "description": "INTEGRATED: the dev environment actually calls the read-replica module — a module that exists but is wired into nothing produces no plan and changes nothing",
+    "description": "INTEGRATED: the dev environment actually calls the read-replica module \u2014 a module that exists but is wired into nothing produces no plan and changes nothing",
     "command": "grep -q 'modules/read-replica' infra/environments/dev/main.tf 2>/dev/null && echo wired || echo not-wired",
     "expect": "wired"
   }
